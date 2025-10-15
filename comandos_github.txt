@@ -1,6 +1,0 @@
-Comandos_Github
-
-cd /Users/alexandregarcia/Downloads/dashboard-ivv
-git add index.html
-git commit -m "Ajustes finais"
-git push origin main
