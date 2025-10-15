@@ -12,7 +12,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev_secret_key")  # altere no Re
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI", "https://dashboard-ivv.onrender.com/callback")
-ALLOWED_USERS_FILE = "auth_server/allowed_users.json"
+ALLOWED_USERS_FILE = "allowed_users.json"
 
 # Função para criar o fluxo OAuth com os dados diretamente do ambiente
 def create_flow():
