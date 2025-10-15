@@ -1,0 +1,11 @@
+# Sistema e IDEs
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.env
+venv/
+.env/
+.idea/
+.vscode/
