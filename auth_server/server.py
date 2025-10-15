@@ -6,89 +6,66 @@ import os
 import json
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev_secret_key")  # altere no Render depois
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
-# Configurações do OAuth (vindas das variáveis de ambiente)
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "https://dashboard-ivv.onrender.com/callback")
+# Configurações do OAuth
+CLIENT_SECRETS_FILE = "client_secret.json"
+SCOPES = ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
+REDIRECT_URI = "https://dashboard-ivv.onrender.com/callback"
+
 ALLOWED_USERS_FILE = "allowed_users.json"
 
-# Função para criar o fluxo OAuth com os dados diretamente do ambiente
-def create_flow():
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "project_id": "dashboardivvlogin",
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uris": [REDIRECT_URI],
-            }
-        },
-        scopes=[
-            "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/userinfo.profile",
-            "openid",
-        ],
-    )
-
-# Rota inicial — botão de login
+# Página inicial
 @app.route("/")
 def index():
-    if "google_id" in session:
-        return render_template("dashboard.html", user_email=session["email"])
-    return render_template("index.html")
+    if "email" in session:
+        return render_template("index.html", user_email=session["email"])
+    return redirect(url_for("login"))
 
-# Rota de login (inicia o fluxo OAuth)
+# Rota de login
 @app.route("/login")
 def login():
-    flow = create_flow()
-    flow.redirect_uri = REDIRECT_URI
-    authorization_url, state = flow.authorization_url(
-        access_type="offline", include_granted_scopes="true"
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
     )
+    authorization_url, state = flow.authorization_url(prompt="consent")
     session["state"] = state
     return redirect(authorization_url)
 
-# Callback do Google (onde o usuário volta após login)
+# Callback do Google
 @app.route("/callback")
 def callback():
-    state = session["state"]
-    flow = create_flow()
-    flow.redirect_uri = REDIRECT_URI
+    try:
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI
+        )
 
-    flow.fetch_token(authorization_response=request.url)
-    credentials = flow.credentials
+        flow.fetch_token(authorization_response=request.url)
 
-    request_session = requests.Request()
-    user_info = id_token.verify_oauth2_token(
-        credentials._id_token, request_session, GOOGLE_CLIENT_ID
-    )
+        credentials = flow.credentials
+        request_session = requests.Request()
+        id_info = id_token.verify_oauth2_token(
+            credentials.id_token, request_session, flow.client_config["client_id"]
+        )
 
-    email = user_info.get("email")
+        email = id_info.get("email")
 
-    # Carrega os usuários permitidos
-    with open(ALLOWED_USERS_FILE, "r") as f:
-        allowed_users = json.load(f)["allowed_users"]
+        # Verifica se o usuário é permitido
+        with open(ALLOWED_USERS_FILE, "r") as f:
+            allowed_users = json.load(f).get("allowed_users", [])
 
-    if email not in allowed_users:
-        return render_template("aguardando.html", email=email)
+        if email not in allowed_users:
+            return render_template("aguardando.html", email=email)
 
-    # Armazena sessão
-    session["google_id"] = user_info.get("sub")
-    session["email"] = email
-
-    return redirect(url_for("dashboard"))
-
-# Página principal após login
-@app.route("/dashboard")
-def dashboard():
-    if "google_id" not in session:
+        session["email"] = email
         return redirect(url_for("index"))
-    return render_template("dashboard.html", user_email=session["email"])
+
+    except Exception as e:
+        return f"Erro durante login: {e}"
 
 # Logout
 @app.route("/logout")
@@ -96,6 +73,12 @@ def logout():
     session.clear()
     return redirect(url_for("index"))
 
-# Servidor Flask
+# Rota de dashboard (caso queira acessar diretamente)
+@app.route("/dashboard")
+def dashboard():
+    if "email" not in session:
+        return redirect(url_for("login"))
+    return render_template("index.html", user_email=session["email"])
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(debug=True)
