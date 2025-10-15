@@ -1,1 +1,6 @@
-["alexandre@opiniao.inf.br"]
+{
+  "allowed_users": [
+    "alexandre@opiniao.inf.br",
+    "alexopiniao@gmail.com"
+  ]
+}
