@@ -10,20 +10,22 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "chave-secreta-temporaria")
 
 # ======== CONFIGURAÇÕES ========
 REDIRECT_URI = "https://dashboard-ivv.onrender.com/callback"
-SCOPES = ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
+SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+]
 ALLOWED_USERS_FILE = os.path.join(os.path.dirname(__file__), "allowed_users.json")
 
 # Lê o conteúdo do client_secret.json diretamente da variável de ambiente
 CLIENT_SECRET_DATA = json.loads(os.environ["GOOGLE_CLIENT_SECRET_JSON"])
 
-
 # ======== ROTAS ========
 
 @app.route("/")
 def index():
-    if "email" not in session:
-        return redirect(url_for("login"))
-    return redirect(url_for("dashboard"))
+    """Exibe a página inicial (index.html) sempre que o usuário acessa a raiz."""
+    return render_template("index.html")
 
 
 @app.route("/login")
@@ -54,7 +56,11 @@ def callback():
 
     credentials = flow.credentials
     request_session = google_requests.Request()
-    id_info = id_token.verify_oauth2_token(credentials._id_token, request_session, CLIENT_SECRET_DATA["web"]["client_id"])
+    id_info = id_token.verify_oauth2_token(
+        credentials._id_token,
+        request_session,
+        CLIENT_SECRET_DATA["web"]["client_id"]
+    )
 
     user_email = id_info["email"]
 
@@ -71,6 +77,7 @@ def callback():
 
 @app.route("/dashboard")
 def dashboard():
+    """Página do dashboard, protegida por login."""
     if "email" not in session:
         return redirect(url_for("login"))
     return render_template("dashboard.html", user_email=session["email"])
@@ -79,7 +86,7 @@ def dashboard():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("index"))
 
 
 # ======== EXECUÇÃO LOCAL ========
