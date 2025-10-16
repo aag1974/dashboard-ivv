@@ -6,7 +6,6 @@ import json
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
 
-# ✅ Configuração completa do OAuth com metadados OpenID do Google
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -64,4 +63,4 @@ def logout():
     return redirect(url_for('index'))
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
