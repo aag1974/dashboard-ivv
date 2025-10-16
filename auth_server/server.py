@@ -29,7 +29,9 @@ def index():
 
 @app.route('/login')
 def login():
+    # ✅ Log de depuração para ver o redirect_uri gerado
     redirect_uri = url_for('authorize', _external=True)
+    print("🔍 Redirect URI gerado:", redirect_uri, flush=True)  # aparecerá nos logs do Render
     return google.authorize_redirect(redirect_uri)
 
 @app.route('/authorize')
