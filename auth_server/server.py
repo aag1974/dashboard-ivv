@@ -6,7 +6,7 @@ import json
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
 
-# Configuração do OAuth com Google
+# ✅ Configuração completa do OAuth com metadados OpenID do Google
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -28,19 +28,22 @@ def index():
 
 @app.route('/login')
 def login():
-    # ✅ Log de depuração para ver o redirect_uri gerado
     redirect_uri = url_for('authorize', _external=True)
-    print("🔍 Redirect URI gerado:", redirect_uri, flush=True)  # aparecerá nos logs do Render
+    print("🔍 Redirect URI gerado:", redirect_uri, flush=True)
     return google.authorize_redirect(redirect_uri)
 
 @app.route('/authorize')
 def authorize():
     token = google.authorize_access_token()
-    resp = google.get('userinfo')
-    user_info = resp.json()
+    user_info = token.get('userinfo')
+
+    # Caso a biblioteca não retorne userinfo (dependendo da versão)
+    if not user_info:
+        resp = google.get('userinfo')
+        user_info = resp.json()
+
     user_email = user_info.get('email')
 
-    # se o usuário não estiver autorizado → mostra aguardando.html
     if user_email not in allowed_users:
         return render_template('aguardando.html', email=user_email)
 
