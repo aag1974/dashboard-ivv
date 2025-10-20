@@ -9,6 +9,10 @@ from datetime import timedelta
 # Configuração principal
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="None"
+)
 app.permanent_session_lifetime = timedelta(hours=1)
 
 # Configuração do OAuth (Google)
