@@ -84,10 +84,6 @@ def authorize():
             print(f"⛔ Acesso negado para {user_email}")
             return redirect(url_for("acesso_negado"))
 
-@app.route("/acesso_negado")
-def acesso_negado():
-    return render_template("acesso_negado.html"), 403
-
         # Cria sessão autenticada
         session["user"] = {"email": user_email}
         session.permanent = True
@@ -99,6 +95,9 @@ def acesso_negado():
         traceback.print_exc()
         return f"Erro interno durante autorização: {e}", 500
 
+@app.route("/acesso_negado")
+def acesso_negado():
+    return render_template("acesso_negado.html"), 403
 
 @app.route("/dashboard")
 def dashboard():
