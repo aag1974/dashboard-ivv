@@ -1,7 +1,8 @@
-from flask import Flask, redirect, url_for, session, render_template
+from flask import Flask, redirect, url_for, session, render_template, session
 from authlib.integrations.flask_client import OAuth
 import os
 import json
+import traceback
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
@@ -31,36 +32,36 @@ def login():
     print("🔍 Redirect URI gerado:", redirect_uri, flush=True)
     return google.authorize_redirect(redirect_uri)
 
-@app.route('/authorize')
+@app.route("/authorize")
 def authorize():
-    token = google.authorize_access_token()
-    user_info = token.get('userinfo')
-
-    # Caso a biblioteca não retorne userinfo (dependendo da versão)
-    if not user_info:
-        resp = google.get('userinfo')
-        user_info = resp.json()
-
-    user_email = user_info.get('email')
-
-    if user_email not in allowed_users:
-        return render_template('aguardando.html', email=user_email)
-
-    session['google_token'] = token
-    session['user'] = user_info
+    try:
+        # código original de autenticação
+        token = oauth.google.authorize_access_token()
+        user_info = oauth.google.parse_id_token(token)
+        session["user"] = user_info
+        return redirect("/dashboard")
+    except Exception as e:
+        import traceback
+        print("❌ ERRO EM /AUTHORIZE:", e)
+        traceback.print_exc()
+        return f"Erro interno: {str(e)}", 500
     return redirect(url_for('dashboard'))
 
-@app.route('/dashboard')
+@app.route("/dashboard")
 def dashboard():
-    if 'google_token' not in session:
-        return redirect(url_for('login'))
-    user = session.get('user', {})
-    return render_template('dashboard.html', user=user)
-
+    try:
+        user = session.get("user")  # ou o que você usa para o login
+        print("🧭 Entrando na rota /dashboard com user:", user)
+        return render_template("dashboard.html", user=user)
+    except Exception as e:
+        print("❌ ERRO AO RENDERIZAR /dashboard:", e)
+        traceback.print_exc()
+        return f"Erro interno: {str(e)}", 500
+    
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('index'))
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
