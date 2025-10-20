@@ -47,10 +47,20 @@ def authorize():
     try:
         token = oauth.google.authorize_access_token()
         user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
+        email = user_info.get("email", "").lower()
+
+        # 🔒 Verifica se o e-mail está autorizado
+        if email not in allowed_users:
+            print(f"🚫 Acesso negado para: {email}")
+            return "Acesso negado: este e-mail não está autorizado.", 403
+
+        # Sessão válida e permanente (1h)
         session.permanent = True
         session["user"] = user_info
-        print("✅ Login bem-sucedido:", user_info["email"])
+
+        print(f"✅ Login bem-sucedido: {email}")
         return redirect("/dashboard")
+
     except Exception as e:
         print("❌ ERRO EM /authorize:", e)
         traceback.print_exc()
