@@ -1,16 +1,17 @@
-from flask import Flask,render_template, send_from_directory, session, redirect, url_for
+from flask import Flask, render_template, send_from_directory, session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
 import os
 import json
 import traceback
 import secrets
+from datetime import timedelta
 
+# Configuração principal
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
-
-from datetime import timedelta
 app.permanent_session_lifetime = timedelta(hours=1)
 
+# Configuração do OAuth (Google)
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -24,12 +25,14 @@ google = oauth.register(
 with open(os.path.join(os.path.dirname(__file__), 'allowed_users.json')) as f:
     allowed_users = json.load(f)
 
+# Página inicial
 @app.route('/')
 def index():
     if 'google_token' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
+# Login com Google
 @app.route("/login")
 def login():
     nonce = secrets.token_urlsafe(16)
@@ -38,26 +41,28 @@ def login():
     print("🔍 Redirect URI gerado:", redirect_uri)
     return oauth.google.authorize_redirect(redirect_uri, nonce=nonce)
 
+# Callback de autorização
 @app.route("/authorize")
 def authorize():
     try:
         token = oauth.google.authorize_access_token()
         user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
-        
-        # Sessão permanente (dura 1h conforme configuração global)
         session.permanent = True
         session["user"] = user_info
-
         print("✅ Login bem-sucedido:", user_info["email"])
         return redirect("/dashboard")
+    except Exception as e:
+        print("❌ ERRO EM /authorize:", e)
+        traceback.print_exc()
+        return f"Erro interno durante autorização: {e}", 500
 
+# Página do dashboard (protegida)
 @app.route("/dashboard")
 def dashboard():
     try:
-        # Proteção: verifica se o usuário está autenticado
         if "user" not in session:
             print("🚫 Acesso negado — redirecionando para login")
-            return redirect(url_for("login"))  # ou "/login" direto
+            return redirect(url_for("login"))
 
         print("✅ Usuário autenticado, servindo dashboard.html")
         caminho_templates = os.path.join(app.root_path, "templates")
@@ -66,11 +71,18 @@ def dashboard():
         print("❌ ERRO EM /dashboard:", e)
         traceback.print_exc()
         return f"Erro interno: {e}", 500
-    
+
+# Logout
 @app.route("/logout")
 def logout():
     session.pop("user", None)
+    print("👋 Usuário desconectado")
     return redirect("/")
+
+# Rota de ping (para manter vivo)
+@app.route("/ping")
+def ping():
+    return "pong", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
