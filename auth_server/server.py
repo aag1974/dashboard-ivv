@@ -82,7 +82,11 @@ def authorize():
 
         if user_email not in allowed_users:
             print(f"⛔ Acesso negado para {user_email}")
-            return render_template("acesso_negado.html"), 403
+            return redirect(url_for("acesso_negado"))
+
+@app.route("/acesso_negado")
+def acesso_negado():
+    return render_template("acesso_negado.html"), 403
 
         # Cria sessão autenticada
         session["user"] = {"email": user_email}
