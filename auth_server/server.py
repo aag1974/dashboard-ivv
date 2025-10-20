@@ -52,7 +52,7 @@ def authorize():
         # 🔒 Verifica se o e-mail está autorizado
         if email not in allowed_users:
             print(f"🚫 Acesso negado para: {email}")
-            return "Acesso negado: este e-mail não está autorizado.", 403
+            return render_template("acesso_negado.html", email=email), 403
 
         # Sessão válida e permanente (1h)
         session.permanent = True

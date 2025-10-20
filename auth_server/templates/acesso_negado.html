@@ -1,92 +1,85 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Acesso Negado | Dashboard IVV</title>
-    <link rel="icon" href="/logo.png" type="image/png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-
-    <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            background: linear-gradient(135deg, #002B5B, #00509E);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "Inter", sans-serif;
-            color: white;
-        }
-
-        .container {
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 48px 64px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-            text-align: center;
-            max-width: 420px;
-            width: 90%;
-            backdrop-filter: blur(6px);
-        }
-
-        .logo {
-            width: 120px;
-            height: auto;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        p {
-            color: #cfd8e3;
-            margin-bottom: 32px;
-            line-height: 1.5;
-        }
-
-        a.button {
-            display: inline-block;
-            background-color: white;
-            color: #002B5B;
-            border-radius: 8px;
-            padding: 12px 20px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.2s ease-in-out;
-        }
-
-        a.button:hover {
-            background-color: #f2f2f2;
-            transform: scale(1.02);
-        }
-
-        footer {
-            position: absolute;
-            bottom: 20px;
-            font-size: 0.8rem;
-            color: #cfd8e3;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard IVV - Login</title>
+  <link rel="icon" href="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png">
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #2c7be5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+      padding: 40px 60px;
+      width: 90%;
+      max-width: 500px;
+    }
+    img.logo {
+      width: 160px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #2c7be5;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    p {
+      color: #555;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+    .btn-google {
+      background-color: white;
+      color: #555;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-google:hover {
+      background-color: #f2f2f2;
+    }
+    .btn-google img {
+      height: 20px;
+      margin-right: 10px;
+    }
+    footer {
+      margin-top: 40px;
+      color: white;
+      font-size: 13px;
+    }
+  </style>
 </head>
-
 <body>
-    <div class="container">
-        <img src="/logo.png" alt="Logo IVV" class="logo">
-        <h1>Acesso Negado</h1>
-        <p>
-            O seu e-mail (<strong>{{ email }}</strong>) não está autorizado a acessar o Dashboard IVV.<br><br>
-            Caso acredite que isso seja um erro, entre em contato com o administrador pelo e-mail:<br>
-            <a href="mailto:alexandre@opiniao.inf.br" style="color: #fff; font-weight: 600;">alexandre@opiniao.inf.br</a>
-        </p>
-        <a href="/" class="button">Voltar à página inicial</a>
-    </div>
-
-    <footer>
-        © 2025 IVV Analytics | Acesso restrito
-    </footer>
+  <div class="container">
+    <img class="logo" src="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png" alt="Opinião">
+    <h1>DASHBOARD PESQUISA IVV</h1>
+    <p>Acesse com sua conta corporativa do Google para continuar.</p>
+    <a href="/login" class="btn-google">
+      <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo">
+      Entrar com Google
+    </a>
+  </div>
+  <footer>Elaborado por <strong>Opinião Informação Estratégica</strong>. Reprodução Proibida.</footer>
 </body>
 </html>
