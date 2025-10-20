@@ -44,25 +44,28 @@ def login():
 # Callback de autorização
 @app.route("/authorize")
 def authorize():
+    user_email = None  # ✅ Garante que a variável exista mesmo se o try falhar
     try:
         token = oauth.google.authorize_access_token()
         user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
-        email = user_info.get("email", "").lower()
+        user_email = user_info.get("email")
+        print(f"✅ Login bem-sucedido: {user_email}")
 
-        # 🔒 Verifica se o e-mail está autorizado
-        if email not in allowed_users:
-            print(f"🚫 Acesso negado para: {user_email}")
-            return render_template("acesso_negado.html", email=email), 403
+        # Verifica se o e-mail está autorizado
+        with open("allowed_users.json", "r") as f:
+            allowed_users = json.load(f)
 
-        # Sessão válida e permanente (1h)
+        if user_email not in allowed_users:
+            print(f"⛔ Acesso negado para {user_email}")
+            return render_template("acesso_negado.html"), 403
+
+        # Autenticação bem-sucedida → cria sessão
+        session["user"] = {"email": user_email}
         session.permanent = True
-        session["user"] = user_info
-
-        print(f"✅ Login bem-sucedido: {email}")
-        return redirect("/dashboard")
+        return redirect(url_for("dashboard"))
 
     except Exception as e:
-        print("❌ ERRO EM /authorize:", e)
+        print(f"❌ ERRO EM /AUTHORIZE: {e}")
         traceback.print_exc()
         return f"Erro interno durante autorização: {e}", 500
 
