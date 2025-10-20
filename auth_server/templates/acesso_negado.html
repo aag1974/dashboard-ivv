@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard IVV - Login</title>
+  <title>Acesso Negado - Dashboard IVV</title>
   <link rel="icon" href="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png">
   <style>
     body {
       font-family: "Segoe UI", Arial, sans-serif;
-      background-color: #2c7be5;
+      background-color: #f8f9fa;
       color: #333;
       margin: 0;
       padding: 0;
@@ -25,60 +25,33 @@
       text-align: center;
       padding: 40px 60px;
       width: 90%;
-      max-width: 500px;
+      max-width: 520px;
     }
-    img.logo {
-      width: 160px;
-      margin-bottom: 20px;
+    img.logo { width: 140px; margin-bottom: 20px; }
+    h1 { color: #dc3545; font-size: 24px; margin-bottom: 16px; }
+    p { color: #555; font-size: 16px; margin-bottom: 20px; }
+    .email a { color: #2c7be5; text-decoration: none; font-weight: 600; }
+    .email a:hover { text-decoration: underline; }
+    a.btn-voltar {
+      display: inline-block; background-color: #2c7be5; color: #fff;
+      text-decoration: none; border-radius: 6px; padding: 10px 20px; font-size: 16px;
+      transition: background-color .2s ease;
     }
-    h1 {
-      color: #2c7be5;
-      font-size: 24px;
-      margin-bottom: 20px;
-    }
-    p {
-      color: #555;
-      font-size: 16px;
-      margin-bottom: 30px;
-    }
-    .btn-google {
-      background-color: white;
-      color: #555;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      padding: 10px 20px;
-      font-size: 16px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      text-decoration: none;
-    }
-    .btn-google:hover {
-      background-color: #f2f2f2;
-    }
-    .btn-google img {
-      height: 20px;
-      margin-right: 10px;
-    }
-    footer {
-      margin-top: 40px;
-      color: white;
-      font-size: 13px;
-    }
+    a.btn-voltar:hover { background-color: #1a5dc9; }
+    footer { margin-top: 32px; color: #888; font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="container">
     <img class="logo" src="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png" alt="Opinião">
-    <h1>DASHBOARD PESQUISA IVV</h1>
-    <p>Acesse com sua conta corporativa do Google para continuar.</p>
-    <a href="/login" class="btn-google">
-      <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google Logo">
-      Entrar com Google
-    </a>
+    <h1>⛔ Acesso negado</h1>
+    <p>O e-mail utilizado não está autorizado a acessar este sistema.</p>
+    <p class="email">
+      Para solicitar acesso, entre em contato com o administrador:
+      <br>
+      <a href="mailto:alexandre@opiniao.inf.br">alexandre@opiniao.inf.br</a>
+    </p>
+    <a href="/" class="btn-voltar">Voltar à página inicial</a>
   </div>
   <footer>Elaborado por <strong>Opinião Informação Estratégica</strong>. Reprodução Proibida.</footer>
 </body>
