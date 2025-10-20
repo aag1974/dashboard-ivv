@@ -9,7 +9,8 @@ from datetime import timedelta
 # ==========================
 # CONFIGURAÇÃO PRINCIPAL
 # ==========================
-app = Flask(__name__)
+template_dir = os.path.join(os.path.dirname(__file__), "templates")
+app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
 app.config.update(
     SESSION_COOKIE_SECURE=True,
