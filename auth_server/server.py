@@ -8,6 +8,9 @@ import secrets
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
 
+from datetime import timedelta
+app.permanent_session_lifetime = timedelta(hours=1)
+
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
@@ -40,13 +43,13 @@ def authorize():
     try:
         token = oauth.google.authorize_access_token()
         user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
+        
+        # Sessão permanente (dura 1h conforme configuração global)
+        session.permanent = True
         session["user"] = user_info
+
         print("✅ Login bem-sucedido:", user_info["email"])
         return redirect("/dashboard")
-    except Exception as e:
-        print("❌ ERRO EM /AUTHORIZE:", e)
-        traceback.print_exc()
-        return f"Erro interno: {e}", 500
 
 @app.route("/dashboard")
 def dashboard():
@@ -64,10 +67,10 @@ def dashboard():
         traceback.print_exc()
         return f"Erro interno: {e}", 500
     
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    session.clear()
-    return redirect(url_for('index'))
+    session.pop("user", None)
+    return redirect("/")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
