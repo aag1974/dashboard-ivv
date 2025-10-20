@@ -3,6 +3,7 @@ from authlib.integrations.flask_client import OAuth
 import os
 import json
 import traceback
+import secrets
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
@@ -26,26 +27,26 @@ def index():
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
-@app.route('/login')
+@app.route("/login")
 def login():
-    redirect_uri = url_for('authorize', _external=True)
-    print("🔍 Redirect URI gerado:", redirect_uri, flush=True)
-    return google.authorize_redirect(redirect_uri)
+    nonce = secrets.token_urlsafe(16)
+    session["nonce"] = nonce
+    redirect_uri = url_for("authorize", _external=True)
+    print("🔍 Redirect URI gerado:", redirect_uri)
+    return oauth.google.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route("/authorize")
 def authorize():
     try:
-        # código original de autenticação
         token = oauth.google.authorize_access_token()
-        user_info = oauth.google.parse_id_token(token)
+        user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
         session["user"] = user_info
+        print("✅ Login bem-sucedido:", user_info["email"])
         return redirect("/dashboard")
     except Exception as e:
-        import traceback
         print("❌ ERRO EM /AUTHORIZE:", e)
         traceback.print_exc()
-        return f"Erro interno: {str(e)}", 500
-    return redirect(url_for('dashboard'))
+        return f"Erro interno: {e}", 500
 
 @app.route("/dashboard")
 def dashboard():
