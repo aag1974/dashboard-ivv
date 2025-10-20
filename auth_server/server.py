@@ -1,4 +1,4 @@
-from flask import Flask, redirect, url_for, session, render_template, session
+from flask import Flask, redirect, url_for, session, render_template, session, sendo_from_directory
 from authlib.integrations.flask_client import OAuth
 import os
 import json
@@ -50,10 +50,11 @@ def authorize():
 @app.route("/dashboard")
 def dashboard():
     try:
-        user = session.get("user")
-        print("📍 Entrando em /dashboard com user:", user)
-        return render_template("dashboard.html", user=user)
+        print("📄 Servindo dashboard.html diretamente (modo estático)")
+        caminho_templates = os.path.join(app.root_path, "templates")
+        return send_from_directory(caminho_templates, "dashboard.html")
     except Exception as e:
+        import traceback
         print("❌ ERRO EM /dashboard:", e)
         traceback.print_exc()
         return f"Erro interno: {e}", 500
