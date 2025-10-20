@@ -69,7 +69,6 @@ def login():
 @app.route("/authorize")
 def authorize():
     """Callback do OAuth após login no Google"""
-    user_email = None
     try:
         token = oauth.google.authorize_access_token()
         user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
@@ -82,9 +81,12 @@ def authorize():
 
         if user_email not in allowed_users:
             print(f"⛔ Acesso negado para {user_email}")
+            # 🔹 Apaga sessão para garantir logout completo
+            session.clear()
+            # 🔹 Redireciona explicitamente para a rota /acesso_negado
             return redirect(url_for("acesso_negado"))
 
-        # Cria sessão autenticada
+        # 🔹 Se autorizado, cria sessão e segue para o dashboard
         session["user"] = {"email": user_email}
         session.permanent = True
         print(f"🎉 Sessão criada para {user_email}")
@@ -95,9 +97,12 @@ def authorize():
         traceback.print_exc()
         return f"Erro interno durante autorização: {e}", 500
 
+
 @app.route("/acesso_negado")
 def acesso_negado():
-    return render_template("acesso_negado.html"), 403
+    """Página mostrada quando o e-mail não está autorizado"""
+    print("🚫 Redirecionado para acesso_negado")
+    return render_template("acesso_negado.html"), 200
 
 @app.route("/dashboard")
 def dashboard():
