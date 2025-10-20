@@ -50,13 +50,13 @@ def authorize():
 @app.route("/dashboard")
 def dashboard():
     try:
-        user = session.get("user")  # ou o que você usa para o login
-        print("🧭 Entrando na rota /dashboard com user:", user)
+        user = session.get("user")
+        print("📍 Entrando em /dashboard com user:", user)
         return render_template("dashboard.html", user=user)
     except Exception as e:
-        print("❌ ERRO AO RENDERIZAR /dashboard:", e)
+        print("❌ ERRO EM /dashboard:", e)
         traceback.print_exc()
-        return f"Erro interno: {str(e)}", 500
+        return f"Erro interno: {e}", 500
     
 @app.route('/logout')
 def logout():
