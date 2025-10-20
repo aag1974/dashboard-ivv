@@ -1,4 +1,4 @@
-from flask import send_from_directory, session, redirect, url_for
+from flask import Flask, send_from_directory, session, redirect, url_for
 from authlib.integrations.flask_client import OAuth
 import os
 import json
