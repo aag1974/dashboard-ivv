@@ -51,7 +51,7 @@ def authorize():
 
         # 🔒 Verifica se o e-mail está autorizado
         if email not in allowed_users:
-            print(f"🚫 Acesso negado para: {email}")
+            print(f"🚫 Acesso negado para: {user_email}")
             return render_template("acesso_negado.html", email=email), 403
 
         # Sessão válida e permanente (1h)
@@ -88,6 +88,11 @@ def logout():
     session.pop("user", None)
     print("👋 Usuário desconectado")
     return redirect("/")
+
+@app.after_request
+def add_header(response):
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Rota de ping (para manter vivo)
 @app.route("/ping")
