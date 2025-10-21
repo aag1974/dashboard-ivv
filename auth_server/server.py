@@ -1,10 +1,11 @@
-from flask import Flask, render_template, send_from_directory, session, redirect, url_for
+from flask import Flask, render_template, send_from_directory, session, redirect, url_for, request
 from authlib.integrations.flask_client import OAuth
 import os
 import json
 import traceback
 import secrets
 from datetime import timedelta
+import uuid  # (ADDED) para gerar session_id único
 
 # ==========================
 # CONFIGURAÇÃO PRINCIPAL
@@ -46,12 +47,83 @@ print(f"✅ allowed_users.json carregado com sucesso ({len(allowed_users)} regis
 print(f"📂 Caminho absoluto: {ALLOWED_USERS_PATH}")
 
 # ==========================
+# CONTROLE DE SESSÃO ÚNICA (ADDED)
+# ==========================
+SESSIONS_FILE = os.path.join(BASE_DIR, "sessions.json")
+_active_sessions = {}  # mapa: email -> session_id
+
+def _load_sessions():
+    global _active_sessions
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, "r") as f:
+                _active_sessions = json.load(f)
+        except Exception:
+            _active_sessions = {}
+    else:
+        _active_sessions = {}
+
+def _save_sessions():
+    try:
+        with open(SESSIONS_FILE, "w") as f:
+            json.dump(_active_sessions, f)
+    except Exception as e:
+        print("⚠️ Falha ao salvar sessions.json:", e)
+
+_load_sessions()
+
+def _set_active_session(user_email: str, session_id: str):
+    """Define/atualiza a sessão ativa de um usuário e persiste em disco."""
+    _active_sessions[user_email] = session_id
+    _save_sessions()
+
+def _clear_active_session(user_email: str):
+    """Remove a sessão ativa registrada para um usuário e persiste em disco."""
+    if user_email in _active_sessions:
+        _active_sessions.pop(user_email, None)
+        _save_sessions()
+
+def _is_current_session_active(user_email: str, current_session_id: str) -> bool:
+    """Confere se a sessão atual do navegador é a mesma registrada como ativa."""
+    return _active_sessions.get(user_email) == current_session_id
+
+# ==========================
+# MIDDLEWARE: ENFORCE SINGLE SESSION (ADDED)
+# ==========================
+@app.before_request
+def _enforce_single_session():
+    # Rotas públicas/estáticas que não exigem checagem
+    public_paths = ("/", "/login", "/authorize", "/acesso_negado", "/ping", "/static")
+    if request.path.startswith(public_paths):
+        return
+
+    # Para rotas protegidas, exigimos sessão válida
+    user = session.get("user")
+    if not user:
+        return redirect(url_for("login"))
+
+    user_email = user.get("email")
+    current_session_id = session.get("session_id")
+
+    # Se não houver session_id (ex: sessão antiga), força re-login
+    if not user_email or not current_session_id:
+        session.clear()
+        return redirect(url_for("login"))
+
+    # Se a sessão registrada como ativa for diferente, derruba esta sessão
+    if not _is_current_session_active(user_email, current_session_id):
+        print(f"🧱 Sessão inválida/sobrescrita detectada para {user_email}. Forçando login.")
+        session.clear()
+        return redirect(url_for("login"))
+
+# ==========================
 # ROTAS PRINCIPAIS
 # ==========================
 
 @app.route('/')
 def index():
-    if 'google_token' in session:
+    # Ajuste: considera a chave "user" que já é usada pelo app
+    if 'user' in session:
         return redirect(url_for('dashboard'))
     return render_template('index.html')
 
@@ -81,15 +153,20 @@ def authorize():
 
         if user_email not in allowed_users:
             print(f"⛔ Acesso negado para {user_email}")
-            # 🔹 Apaga sessão para garantir logout completo
             session.clear()
-            # 🔹 Redireciona explicitamente para a rota /acesso_negado
             return redirect(url_for("acesso_negado"))
 
-        # 🔹 Se autorizado, cria sessão e segue para o dashboard
+        # -------- Sessão única: gera e registra session_id (ADDED) --------
+        new_session_id = str(uuid.uuid4())
         session["user"] = {"email": user_email}
+        session["session_id"] = new_session_id
         session.permanent = True
-        print(f"🎉 Sessão criada para {user_email}")
+
+        # Substitui qualquer sessão anterior deste usuário
+        _set_active_session(user_email, new_session_id)
+        print(f"🎉 Sessão criada/atualizada para {user_email} (session_id {new_session_id})")
+        # ------------------------------------------------------------------
+
         return redirect(url_for("dashboard"))
 
     except Exception as e:
@@ -125,8 +202,14 @@ def dashboard():
 @app.route("/logout")
 def logout():
     """Finaliza a sessão"""
-    session.pop("user", None)
-    print("👋 Usuário desconectado")
+    try:
+        user_email = session.get("user", {}).get("email")
+        if user_email:
+            _clear_active_session(user_email)  # (ADDED) limpa a sessão ativa registrada
+        session.clear()
+        print("👋 Usuário desconectado e sessão ativa removida")
+    except Exception as e:
+        print("⚠️ Erro durante logout:", e)
     return redirect("/")
 
 
