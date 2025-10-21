@@ -1,0 +1,4 @@
+git status
+git add .
+git commit -m "IVV Set/25 e novos usuarios"
+git push origin main
