@@ -6,53 +6,236 @@
   <title>Acesso Negado - Dashboard IVV</title>
   <link rel="icon" href="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png">
   <style>
-    body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      background-color: #f8f9fa;
-      color: #333;
-      margin: 0;
+    * {
+      margin: 0; 
       padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+      min-height: 100vh;
+      color: #333;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      padding: 20px;
     }
+
     .container {
-      background-color: #fff;
+      background: rgba(255,255,255,0.98);
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
       text-align: center;
-      padding: 40px 60px;
-      width: 90%;
+      padding: 50px 60px;
+      width: 100%;
       max-width: 520px;
+      backdrop-filter: blur(10px);
     }
-    img.logo { width: 140px; margin-bottom: 20px; }
-    h1 { color: #dc3545; font-size: 24px; margin-bottom: 16px; }
-    p { color: #555; font-size: 16px; margin-bottom: 20px; }
-    .email a { color: #2c7be5; text-decoration: none; font-weight: 600; }
-    .email a:hover { text-decoration: underline; }
-    a.btn-voltar {
-      display: inline-block; background-color: #2c7be5; color: #fff;
-      text-decoration: none; border-radius: 6px; padding: 10px 20px; font-size: 16px;
-      transition: background-color .2s ease;
+
+    .logo-container {
+      margin-bottom: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
-    a.btn-voltar:hover { background-color: #1a5dc9; }
-    footer { margin-top: 32px; color: #888; font-size: 13px; }
+
+    img.logo {
+      height: 80px;
+      width: auto;
+      max-width: 200px;
+      object-fit: contain;
+      transition: all 0.3s ease;
+    }
+
+    h1 {
+      color: #dc3545;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .icon-blocked {
+      font-size: 24px;
+    }
+
+    p {
+      color: #555;
+      font-size: 16px;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .email {
+      background: rgba(74, 144, 226, 0.05);
+      border-left: 4px solid #4A90E2;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 25px 0;
+    }
+
+    .email a {
+      color: #4A90E2;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .email a:hover {
+      text-decoration: underline;
+      color: #357ABD;
+    }
+
+    .btn-voltar {
+      display: inline-block;
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 16px rgba(74, 144, 226, 0.25);
+      margin-top: 10px;
+    }
+
+    .btn-voltar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(74, 144, 226, 0.35);
+    }
+
+    footer {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.9);
+      font-size: 13px;
+      text-align: center;
+      backdrop-filter: blur(5px);
+      background: rgba(255,255,255,0.1);
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+
+    /* Responsividade */
+    @media (max-width: 576px) {
+      .container {
+        padding: 40px 30px;
+        margin: 20px;
+      }
+      
+      h1 {
+        font-size: 24px;
+      }
+      
+      img.logo {
+        height: 70px;
+      }
+      
+      .email {
+        padding: 15px;
+      }
+    }
+
+    /* Loading state para logo */
+    .logo-loading {
+      opacity: 0.5;
+    }
+
+    /* Animação de alerta */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .container {
+      animation: shake 0.5s ease-in-out;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <img class="logo" src="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png" alt="Opinião">
-    <h1>⛔ Acesso negado</h1>
+    <div class="logo-container">
+      <img class="logo" id="logoImg" src="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png" alt="Opinião" />
+    </div>
+    <h1>
+      <span class="icon-blocked">⛔</span>
+      Acesso negado
+    </h1>
     <p>O e-mail utilizado não está autorizado a acessar este sistema.</p>
-    <p class="email">
-      Para solicitar acesso, entre em contato com o administrador:
-      <br>
-      <a href="mailto:alexandre@opiniao.inf.br">alexandre@opiniao.inf.br</a>
-    </p>
+    <div class="email">
+      <p>
+        Para solicitar acesso, entre em contato com o administrador:
+        <br><br>
+        <a href="mailto:alexandre@opiniao.inf.br">alexandre@opiniao.inf.br</a>
+      </p>
+    </div>
     <a href="/" class="btn-voltar">Voltar à página inicial</a>
   </div>
-  <footer>Elaborado por <strong>Opinião Informação Estratégica</strong>. Reprodução Proibida.</footer>
+  
+  <footer>
+    Elaborado por <strong>Opinião Informação Estratégica</strong>. Reprodução Proibida.
+  </footer>
+
+  <script>
+    // Sistema de fallback para logo (compatível com o dashboard)
+    function ensureCorrectLogo() {
+      const logoImg = document.getElementById('logoImg');
+      
+      if (logoImg) {
+        const logoUrls = [
+          'https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png',
+          'https://cdn.jsdelivr.net/gh/aag1974/dashboard-ivv@main/logo.png'
+        ];
+        
+        let currentUrlIndex = 0;
+        
+        function tryLoadLogo() {
+          if (currentUrlIndex >= logoUrls.length) {
+            console.error('❌ Todas as URLs de logo falharam.');
+            return;
+          }
+          
+          logoImg.src = logoUrls[currentUrlIndex];
+          logoImg.alt = 'Opinião';
+        }
+        
+        logoImg.onerror = function() {
+          console.error(`❌ Erro na logo (tentativa ${currentUrlIndex + 1})`);
+          currentUrlIndex++;
+          if (currentUrlIndex < logoUrls.length) {
+            setTimeout(tryLoadLogo, 100);
+          }
+        };
+        
+        logoImg.onload = function() {
+          console.log('✅ Logo carregada!');
+          this.classList.remove('logo-loading');
+        };
+        
+        // Adicionar classe de loading
+        logoImg.classList.add('logo-loading');
+        
+        // Se não carregar em 3 segundos, tentar fallback
+        setTimeout(() => {
+          if (!logoImg.complete || logoImg.naturalHeight === 0) {
+            tryLoadLogo();
+          }
+        }, 3000);
+      }
+    }
+
+    // Executar quando DOM carregar
+    document.addEventListener('DOMContentLoaded', ensureCorrectLogo);
+  </script>
 </body>
 </html>
