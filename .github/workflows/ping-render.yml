@@ -2,7 +2,7 @@ name: 🔄 Manter Dashboard IVV Ativo
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # roda a cada 10 minutos
+    - cron: "*/5 * * * *"   # roda a cada 10 minutos
   workflow_dispatch:
 
 jobs:
