@@ -1723,6 +1723,13 @@ class DashboardGenerator:
             border: 1px solid #ddd;
         }
 
+        /* Estilo discreto para botões de exportação de PDF/Excel */
+        .export-btn {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+
         .filter-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -2499,9 +2506,12 @@ class DashboardGenerator:
         <div class="filters-container">
             <div class="filters-header">
                 <h2 class="filter-title">FILTROS DE SELEÇÃO</h2>
-                <div class="filter-actions">
+                    <div class="filter-actions">
                     <button class="filter-btn apply-btn" onclick="applyFilters()">Aplicar Filtros</button>
                     <button class="filter-btn clear-btn" onclick="clearFilters()">Limpar Filtros</button>
+                    <!-- Botões de exportação (PDF/Excel) posicionados ao lado dos filtros -->
+                    <button class="filter-btn export-btn" onclick="exportAllTablesToPDF()">📄 PDF</button>
+                    <button class="filter-btn export-btn" onclick="exportAllTablesToXLSX()">📊 Excel</button>
                 </div>
             </div>
             <div class="filters-grid">
@@ -2669,6 +2679,8 @@ class DashboardGenerator:
     <style>{css_styles}</style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <!-- Biblioteca para exportação de planilhas Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -5461,7 +5473,7 @@ class DashboardGenerator:
                 <div class="table-card">
                     <div class="table-header">
                         <div class="table-title">${title}</div>
-                        <button class="filter-btn apply-btn" onclick="exportAllTablesToPDF()">📄 PDF</button>
+                        <!-- Botões de exportação removidos do cabeçalho da tabela -->
                     </div>
                     <table id="${tableId}" class="data-table quarterly-table">
                         <thead><tr><th></th>`;
@@ -6093,7 +6105,7 @@ class DashboardGenerator:
                 <div class="table-card">
                     <div class="table-header">
                         <div class="table-title">${title}</div>
-                        <button class="filter-btn apply-btn" onclick="exportAllTablesToPDF()">📄 PDF</button>
+                        <!-- Botão de exportação removido do cabeçalho da tabela -->
                     </div>
                     <table id="${tableId}" class="data-table monthly-money-table">
                         <thead><tr><th></th>`;
@@ -6590,13 +6602,13 @@ class DashboardGenerator:
                 return;
             }
 
-            // Cálculos existentes (Tabelas 1-12)
+            // Cálculos existentes
             const ivvPeriods = calculateIVVPeriodAggregations(data);
             const ofertasPeriods = calculatePeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
             const vendasPeriods = calculatePeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const lancamentosPeriods = calculatePeriodAggregations(data, ['OFERTADOS LANCAMENTOS'], false);
             
-            // Novos cálculos (Tabelas 13-33)
+            // Novos cálculos
             const ofertaAreaPeriods = calculateAreaPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
             const vendaAreaPeriods = calculateAreaPeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const ofertaValorPonderadoPeriods = calculateValorPonderadoPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS']);
@@ -6608,59 +6620,59 @@ class DashboardGenerator:
             let tablesHtml = '';
             
             // Tabelas 1-3: IVV (percentuais - 1 casa decimal)
-            tablesHtml += createTable('Tabela 1 – IVV Mensal', ivvPeriods.monthly, true);
-            tablesHtml += createQuarterlyTable('Tabela 2 – IVV Trimestral', ivvPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 3 – IVV Anual', ivvPeriods.yearly);
+            tablesHtml += createTable('IVV Mensal', ivvPeriods.monthly, true);
+            tablesHtml += createQuarterlyTable('IVV Trimestral', ivvPeriods.quarterly);
+            tablesHtml += createYearlyTable('IVV Anual', ivvPeriods.yearly);
             
             // Tabelas 4-6: Ofertas (Unidades - sem casas decimais)
-            tablesHtml += createTable('Tabela 4 – Ofertas Mensais (Unidades)', ofertasPeriods.monthly, false);
-            tablesHtml += createQuarterlyTable('Tabela 5 – Ofertas Trimestrais (Unidades)', ofertasPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 6 – Ofertas Anuais (Unidades)', ofertasPeriods.yearly);
+            tablesHtml += createTable('Ofertas Mensais (Unidades)', ofertasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTable('Ofertas Trimestrais (Unidades)', ofertasPeriods.quarterly);
+            tablesHtml += createYearlyTable('Ofertas Anuais (Unidades)', ofertasPeriods.yearly);
             
             // Tabelas 7-9: Vendas (Unidades - sem casas decimais)
-            tablesHtml += createTable('Tabela 7 – Vendas Mensais (Unidades)', vendasPeriods.monthly, false);
-            tablesHtml += createQuarterlyTable('Tabela 8 – Vendas Trimestrais (Unidades)', vendasPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 9 – Vendas Anuais (Unidades)', vendasPeriods.yearly);
+            tablesHtml += createTable('Vendas Mensais (Unidades)', vendasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTable('Vendas Trimestrais (Unidades)', vendasPeriods.quarterly);
+            tablesHtml += createYearlyTable('Vendas Anuais (Unidades)', vendasPeriods.yearly);
             
             // Tabelas 10-12: Lançamentos (Unidades - sem casas decimais)
-            tablesHtml += createTable('Tabela 10 – Lançamentos Mensais (Unidades [Empreendimentos])', lancamentosPeriods.monthly, false, projectsCount.residencial, projectsCountEmpreendimentos.residencial);
-            tablesHtml += createQuarterlyTable('Tabela 11 – Lançamentos Trimestrais (Unidades [Empreendimentos])', lancamentosPeriods.quarterly, projectsCount.residencial_quarterly, projectsCountEmpreendimentos.residencial_quarterly);
-            tablesHtml += createYearlyTable('Tabela 12 – Lançamentos Anuais (Unidades [Empreendimentos])', lancamentosPeriods.yearly, projectsCount.residencial_yearly, projectsCountEmpreendimentos.residencial_yearly);
+            tablesHtml += createTable('Lançamentos Mensais (Unidades [Empreendimentos])', lancamentosPeriods.monthly, false, projectsCount.residencial, projectsCountEmpreendimentos.residencial);
+            tablesHtml += createQuarterlyTable('Lançamentos Trimestrais (Unidades [Empreendimentos])', lancamentosPeriods.quarterly, projectsCount.residencial_quarterly, projectsCountEmpreendimentos.residencial_quarterly);
+            tablesHtml += createYearlyTable('Lançamentos Anuais (Unidades [Empreendimentos])', lancamentosPeriods.yearly, projectsCount.residencial_yearly, projectsCountEmpreendimentos.residencial_yearly);
             
             // Tabelas 13-15: Ofertas (m² - sem casas decimais)
-            tablesHtml += createTable('Tabela 13 – Oferta Mensal (m²)', ofertaAreaPeriods.monthly, false);
-            tablesHtml += createQuarterlyTable('Tabela 14 – Oferta Trimestral (m²)', ofertaAreaPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 15 – Oferta Anual (m²)', ofertaAreaPeriods.yearly);
+            tablesHtml += createTable('Oferta Mensal (m²)', ofertaAreaPeriods.monthly, false);
+            tablesHtml += createQuarterlyTable('Oferta Trimestral (m²)', ofertaAreaPeriods.quarterly);
+            tablesHtml += createYearlyTable('Oferta Anual (m²)', ofertaAreaPeriods.yearly);
             
             // Tabelas 16-18: Vendas (m² - sem casas decimais)
-            tablesHtml += createTable('Tabela 16 – Venda Mensal (m²)', vendaAreaPeriods.monthly, false);
-            tablesHtml += createQuarterlyTable('Tabela 17 – Venda Trimestral (m²)', vendaAreaPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 18 – Venda Anual (m²)', vendaAreaPeriods.yearly);
+            tablesHtml += createTable('Venda Mensal (m²)', vendaAreaPeriods.monthly, false);
+            tablesHtml += createQuarterlyTable('Venda Trimestral (m²)', vendaAreaPeriods.quarterly);
+            tablesHtml += createYearlyTable('Venda Anual (m²)', vendaAreaPeriods.yearly);
             
             // Tabelas 19-21: Ofertas Valor Médio Ponderado (R$/m² - 2 casas decimais)
-            tablesHtml += createTableMoney('Tabela 19 – Oferta Valor Médio Ponderado Mensal (R$/m²)', ofertaValorPonderadoPeriods.monthly, true);
-            tablesHtml += createQuarterlyTableMoney('Tabela 20 – Oferta Valor Médio Ponderado Trimestral (R$/m²)', ofertaValorPonderadoPeriods.quarterly, true);
-            tablesHtml += createYearlyTableMoney('Tabela 21 – Oferta Valor Médio Ponderado Anual (R$/m²)', ofertaValorPonderadoPeriods.yearly, true);
+            tablesHtml += createTableMoney('Oferta Valor Médio Ponderado Mensal (R$/m²)', ofertaValorPonderadoPeriods.monthly, true);
+            tablesHtml += createQuarterlyTableMoney('Oferta Valor Médio Ponderado Trimestral (R$/m²)', ofertaValorPonderadoPeriods.quarterly, true);
+            tablesHtml += createYearlyTableMoney('Oferta Valor Médio Ponderado Anual (R$/m²)', ofertaValorPonderadoPeriods.yearly, true);
             
             // Tabelas 22-24: Vendas Valor Médio Ponderado (R$/m² - 2 casas decimais)
-            tablesHtml += createTableMoney('Tabela 22 – Venda Valor Médio Ponderado Mensal (R$/m²)', vendaValorPonderadoPeriods.monthly, true);
-            tablesHtml += createQuarterlyTableMoney('Tabela 23 – Venda Valor Médio Ponderado Trimestral (R$/m²)', vendaValorPonderadoPeriods.quarterly, true);
-            tablesHtml += createYearlyTableMoney('Tabela 24 – Venda Valor Médio Ponderado Anual (R$/m²)', vendaValorPonderadoPeriods.yearly, true);
+            tablesHtml += createTableMoney('Venda Valor Médio Ponderado Mensal (R$/m²)', vendaValorPonderadoPeriods.monthly, true);
+            tablesHtml += createQuarterlyTableMoney('Venda Valor Médio Ponderado Trimestral (R$/m²)', vendaValorPonderadoPeriods.quarterly, true);
+            tablesHtml += createYearlyTableMoney('Venda Valor Médio Ponderado Anual (R$/m²)', vendaValorPonderadoPeriods.yearly, true);
             
             // Tabelas 25-27: VGL (R$ Milhões - 2 casas decimais)
-            tablesHtml += createTableMoney('Tabela 25 – VGL Mensal (R$ Milhões)', vglPeriods.monthly, false);
-            tablesHtml += createQuarterlyTableMoney('Tabela 26 – VGL Trimestral (R$ Milhões)', vglPeriods.quarterly, false);
-            tablesHtml += createYearlyTableMoney('Tabela 27 – VGL Anual (R$ Milhões)', vglPeriods.yearly, false);
+            tablesHtml += createTableMoney('VGL Mensal (R$ Milhões)', vglPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGL Trimestral (R$ Milhões)', vglPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGL Anual (R$ Milhões)', vglPeriods.yearly, false);
             
             // Tabelas 28-30: VGV (R$ Milhões - 2 casas decimais)
-            tablesHtml += createTableMoney('Tabela 28 – VGV Mensal (R$ Milhões)', vgvPeriods.monthly, false);
-            tablesHtml += createQuarterlyTableMoney('Tabela 29 – VGV Trimestral (R$ Milhões)', vgvPeriods.quarterly, false);
-            tablesHtml += createYearlyTableMoney('Tabela 30 – VGV Anual (R$ Milhões)', vgvPeriods.yearly, false);
+            tablesHtml += createTableMoney('VGV Mensal (R$ Milhões)', vgvPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGV Trimestral (R$ Milhões)', vgvPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGV Anual (R$ Milhões)', vgvPeriods.yearly, false);
             
             // Tabelas 31-33: Distratos (Unidades - sem casas decimais)
-            tablesHtml += createTable('Tabela 31 – Distratos Mensais (Unidades)', distratosPeriods.monthly, false);
-            tablesHtml += createQuarterlyTable('Tabela 32 – Distratos Trimestrais (Unidades)', distratosPeriods.quarterly);
-            tablesHtml += createYearlyTable('Tabela 33 – Distratos Anuais (Unidades)', distratosPeriods.yearly);
+            tablesHtml += createTable('Distratos Mensais (Unidades)', distratosPeriods.monthly, false);
+            tablesHtml += createQuarterlyTable('Distratos Trimestrais (Unidades)', distratosPeriods.quarterly);
+            tablesHtml += createYearlyTable('Distratos Anuais (Unidades)', distratosPeriods.yearly);
 
             document.getElementById('tablesContainer').innerHTML = tablesHtml;
             // Categoriza as tabelas após geração com timeout para garantir renderização
@@ -7660,31 +7672,31 @@ function applyTrendColorsQuarterly() {
                 let title = '';
                 switch(cat) {
                     case 'oferta_quantidade':
-                        title = 'Tabela 1 - Ofertas por região';
+                        title = 'Ofertas por região';
                         break;
                     case 'venda_quantidade':
-                        title = 'Tabela 2 - Vendas por região';
+                        title = 'Vendas por região';
                         break;
                     case 'valor_ponderado_oferta':
-                        title = 'Tabela 3 - Oferta Valor Ponderado por região (R$/m²)';
+                        title = 'Oferta Valor Ponderado por região (R$/m²)';
                         break;
                     case 'valor_ponderado_venda':
-                        title = 'Tabela 4 - Venda Valor Ponderado por região (R$/m²)';
+                        title = 'Venda Valor Ponderado por região (R$/m²)';
                         break;
                     case 'oferta_m2':
-                        title = 'Tabela 5 - Oferta total por região (em m²)';
+                        title = 'Oferta total por região (em m²)';
                         break;
                     case 'venda_m2':
-                        title = 'Tabela 6 - Venda total por região (em m²)';
+                        title = 'Venda total por região (em m²)';
                         break;
                     case 'gastos_pos_entrega':
                         // Capturar período selecionado para subtítulo dinâmico
                         const filters = getCrossTabsFilters();
                         const periodoSelecionado = filters.periodo || 'Setembro 2025';
-                        title = 'Tabela 7 - Gastos Pós-Entrega e Impactos Econômicos por Região';
+                        title = 'Gastos Pós-Entrega e Impactos Econômicos por Região';
                         break;
                     case 'gastos_por_categoria':
-                        title = 'Tabela 8 - Gastos Pós-entrega por Categoria e Região (R$ Mi)';
+                        title = 'Gastos Pós-entrega por Categoria e Região (R$ Mi)';
                         break;
                 }
                 
@@ -7701,11 +7713,7 @@ function applyTrendColorsQuarterly() {
                     // Subtítulo removido conforme solicitado
                 }
                 
-                const pdfBtn = document.createElement('button');
-                pdfBtn.className = 'filter-btn apply-btn';
-                pdfBtn.textContent = '📄 PDF';
-                pdfBtn.onclick = function() { exportAllTablesToPDF(); };
-                headerDiv.appendChild(pdfBtn);
+                // Removidos os botões individuais de PDF/Excel para crosstabs.
                 
                 groupDiv.appendChild(headerDiv);
                 
@@ -9142,6 +9150,160 @@ function exportAllTablesToPDF(tipoImovel) {
     nome = `Relatorio_Completo_${tipo}_${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}.pdf`;
   }
   doc.save(nome);
+}
+
+// -----------------------------------------------------------------------------
+//  Exportação para Excel (.xlsx)
+//  Esta função cria um arquivo XLSX com todas as tabelas visíveis (e ocultas) da
+//  view atual, respeitando os mesmos filtros aplicados no dashboard. Cada
+//  tabela é inserida em sua própria planilha (aba), e a primeira planilha
+//  contém um resumo com título, data de geração e filtros utilizados.
+// -----------------------------------------------------------------------------
+function exportAllTablesToXLSX(tipoImovel) {
+    // Garante que a biblioteca XLSX foi carregada
+    if (typeof XLSX === 'undefined' || !XLSX.utils) {
+        console.error('Biblioteca XLSX não carregada. Verifique se a biblioteca xlsx.full.min.js foi incluída.');
+        return;
+    }
+    const wb = XLSX.utils.book_new();
+    const now = new Date();
+    // Determinar o tipo de imóvel (Residencial/Comercial) para o título
+    const tipo = tipoImovel || (typeof currentView !== 'undefined'
+        ? (currentView === 'residencial' ? 'Residencial' : (currentView === 'comercial' ? 'Comercial' : 'Residencial'))
+        : 'Residencial');
+    // Capturar filtros aplicados
+    let f;
+    if (typeof currentView !== 'undefined' && currentView === 'crosstabs') {
+        f = getCrossTabsFilters();
+    } else {
+        f = getSelectedFilters();
+    }
+    // Construir texto de filtros semelhante ao PDF
+    const partes = [];
+    if (f.faixaValor && f.faixaValor.length) {
+        const textoFaixaValor = f.faixaValor.length === 1 ? f.faixaValor[0] : `${f.faixaValor.length} selecionadas (${f.faixaValor.join(', ')})`;
+        partes.push('Faixa de Valor: ' + textoFaixaValor);
+    }
+    if (f.faixaArea && f.faixaArea.length) {
+        const textoFaixaArea = f.faixaArea.length === 1 ? f.faixaArea[0] : `${f.faixaArea.length} selecionadas (${f.faixaArea.join(', ')})`;
+        partes.push('Área Privativa: ' + textoFaixaArea);
+    }
+    if (f.estagioObra && f.estagioObra.length) {
+        const textoEstagio = f.estagioObra.length === 1 ? f.estagioObra[0] : `${f.estagioObra.length} selecionados (${f.estagioObra.join(', ')})`;
+        partes.push('Estágio da Obra: ' + textoEstagio);
+    }
+    if (f.bairro && f.bairro.length) {
+        const textoBairro = f.bairro.length === 1 ? f.bairro[0] : `${f.bairro.length} selecionados (${f.bairro.slice(0, 5).join(', ')}${f.bairro.length > 5 ? ', ...' : ''})`;
+        partes.push('Região Administrativa: ' + textoBairro);
+    }
+    if (f.quartos && f.quartos.length) {
+        const textoQuartos = f.quartos.join(', ');
+        partes.push('Quartos: ' + textoQuartos);
+    }
+    if (typeof currentView !== 'undefined' && currentView === 'crosstabs' && f.periodo) {
+        partes.push('Período: ' + f.periodo);
+    }
+    const filtrosTexto = partes.length ? partes.join(' | ') : 'Nenhum filtro aplicado';
+    // Planilha de resumo
+    const resumoData = [
+        [(typeof currentView !== 'undefined' && currentView === 'crosstabs')
+            ? 'Relatório - Crosstabs (Residencial)'
+            : 'Relatório - Dashboard IVV (' + tipo + ')'],
+        ['Gerado em:', new Date().toLocaleString('pt-BR')],
+        [],
+        ['Filtros e configurações aplicadas:'],
+        [filtrosTexto]
+    ];
+    let resumoSheet = XLSX.utils.aoa_to_sheet(resumoData);
+    XLSX.utils.book_append_sheet(wb, resumoSheet, 'Resumo');
+    // Selecionar todas as tabelas da view atual (incluindo ocultas)
+    let cards = [];
+    if (typeof currentView !== 'undefined' && currentView === 'crosstabs') {
+        const crossContainer = document.getElementById('crossTablesContainer');
+        if (crossContainer && crossContainer.style.display !== 'none') {
+            const allCrossCards = crossContainer.querySelectorAll('.table-card.cross-group');
+            cards = Array.from(allCrossCards);
+        }
+    } else {
+        const tablesContainer = document.getElementById('tablesContainer');
+        if (tablesContainer && tablesContainer.style.display !== 'none') {
+            const allCards = tablesContainer.querySelectorAll('.table-card');
+            cards = Array.from(allCards);
+        }
+    }
+    const usedNames = {};
+    cards.forEach(function(card, idx) {
+        let title = (card.querySelector('.table-title') ? card.querySelector('.table-title').innerText : 'Tabela ' + (idx + 1)).trim();
+        // Remover prefixos do tipo "Tabela X –" ou "Tabela X -"
+        title = title.replace(/^Tabela\s*\d+\s*[\u2013-]\s*/, '');
+        // Sanitizar nome da planilha: remover caracteres proibidos e limitar tamanho
+        let name = title.replace(/[\/:\?*\[\]]/g, '').substring(0, 31);
+        if (usedNames[name]) {
+            const suffix = usedNames[name] + 1;
+            usedNames[name] = suffix;
+            name = name.substring(0, 28) + '_' + suffix;
+        } else {
+            usedNames[name] = 1;
+        }
+        const table = card.querySelector('table');
+        if (!table) return;
+        const tableClone = table.cloneNode(true);
+        // Remover setas (▲▼) e barras de fundo das células
+        tableClone.querySelectorAll('td').forEach(function(td) {
+            td.querySelectorAll('span').forEach(function(span) {
+                const text = span.textContent;
+                if (text === '▲' || text === '▼') {
+                    span.remove();
+                }
+            });
+            const wrapper = td.querySelector('div[style*="position: relative"]');
+            if (wrapper) {
+                const valueText = wrapper.querySelector('div[style*="z-index: 1"]');
+                if (valueText) {
+                    td.innerHTML = valueText.innerHTML;
+                }
+            }
+        });
+        // Converter a tabela clonada para um array de arrays preservando o texto conforme exibido,
+        // para manter a formatação brasileira (vírgula como separador decimal e ponto como separador de milhares).
+        const rows = [];
+        tableClone.querySelectorAll('tr').forEach(function(trEl) {
+            const rowArr = [];
+            trEl.querySelectorAll('th, td').forEach(function(cellEl) {
+                rowArr.push(cellEl.innerText.trim());
+            });
+            rows.push(rowArr);
+        });
+        let ws = XLSX.utils.aoa_to_sheet(rows);
+        // Incluir variações e informações de incompletude, se existirem
+        const varEl = card.querySelector('.variation-info');
+        const incNode = Array.from(card.querySelectorAll('div, span, small, em')).find(function(el) {
+            return /incomplet/i.test(el.textContent);
+        });
+        const variationText = varEl ? varEl.innerText.trim() : '';
+        const incompleteText = incNode ? incNode.textContent.trim() : '';
+        if (variationText || incompleteText) {
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            let startRow = range.e.r + 2;
+            const extraRows = [];
+            if (variationText) {
+                extraRows.push(['Variações', variationText]);
+            }
+            if (incompleteText) {
+                extraRows.push(['Observação', incompleteText]);
+            }
+            XLSX.utils.sheet_add_aoa(ws, extraRows, { origin: { r: startRow, c: 0 } });
+        }
+        XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+    // Nome do arquivo de saída
+    let fileName;
+    if (typeof currentView !== 'undefined' && currentView === 'crosstabs') {
+        fileName = 'Relatorio_Completo_Crosstabs_' + now.getFullYear() + '_' + String(now.getMonth() + 1).padStart(2, '0') + '.xlsx';
+    } else {
+        fileName = 'Relatorio_Completo_' + tipo + '_' + now.getFullYear() + '_' + String(now.getMonth() + 1).padStart(2, '0') + '.xlsx';
+    }
+    XLSX.writeFile(wb, fileName);
 }
 
 
