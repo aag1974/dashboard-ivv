@@ -10,7 +10,7 @@ import uuid
 # ==========================
 # CONFIGURAÇÃO PRINCIPAL
 # ==========================
-template_dir = os.path.join(os.path.dirname(__file__), "templates")
+template_dir = os.path.join(os.path.dirname(__file__), "auth_server/templates")
 app = Flask(__name__, template_folder=template_dir)
 app.secret_key = os.getenv("SECRET_KEY", "chave-super-secreta")
 app.config.update(
