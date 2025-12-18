@@ -9476,7 +9476,7 @@ def main():
             # Cria generator com usuário encontrado
             profile_generator = DashboardGenerator(user_email)
             
-            output_file = f"auth_server/templates/dashboard_{profile}.html"
+            output_file = f"templates/dashboard_{profile}.html"
             success = profile_generator.run(input_file, output_file)
             
             if success:
@@ -9517,7 +9517,7 @@ def main():
         
         if success:
             print(f"✅ Dashboard gerado: {output_file}")
-            print(f"💡 Para usar no Flask: mv {output_file} auth_server/templates/dashboard_{args.profile}.html")
+            print(f"💡 Para usar no Flask: mv {output_file} templates/dashboard_{args.profile}.html")
         else:
             print(f"❌ Erro na geração do dashboard")    
 

@@ -4,6 +4,7 @@
 Sistema de Controle de Acesso e Permissões para Dashboard Imobiliário
 """
 
+import pandas as pd
 import json
 import os
 from datetime import datetime
@@ -315,7 +316,9 @@ class DataSanitizer:
         # Remove nomes de projetos se não tem permissão
         if not self.filter_config["show_project_details"]:
             if 'EMPREENDIMENTO' in sanitized_df.columns:
-                sanitized_df['EMPREENDIMENTO'] = f'PROJETO {hash(sanitized_df["EMPREENDIMENTO"]) % 1000:03d}'
+                sanitized_df['EMPREENDIMENTO'] = sanitized_df['EMPREENDIMENTO'].apply(
+                    lambda x: f'PROJETO {hash(str(x)) % 1000:03d}' if pd.notna(x) else 'PROJETO 000'
+                )
         
         # Remove dados financeiros detalhados se não tem permissão
         if not self.filter_config["show_financial_details"]:
@@ -407,24 +410,3 @@ class DataSanitizer:
         return visible_sections
 
 
-# Exemplo de uso
-if __name__ == "__main__":
-    # Inicializar gerenciador de permissões
-    pm = UserPermissionManager("user_profiles.json")
-    
-    # Adicionar usuários de exemplo
-    pm.add_user("admin@empresa.com", "Administrador", "admin")
-    pm.add_user("gerente@empresa.com", "Gerente Regional", "manager")
-    pm.add_user("analista@empresa.com", "Analista Junior", "analyst")
-    pm.add_user("visualizador@empresa.com", "Usuário Básico", "viewer")
-    
-    # Autenticar usuário
-    if pm.authenticate_user("analista@empresa.com"):
-        print(f"Usuário autenticado: {pm.get_user_info()}")
-        print(f"Configuração de filtros: {pm.get_filtered_data_config()}")
-    
-    # Listar todos os usuários
-    print("\nUsuários cadastrados:")
-    for user in pm.list_users():
-        status = "✅ Ativo" if user["active"] else "❌ Inativo"
-        print(f"  {user['email']} - {user['name']} ({user['profile_name']}) {status}")
