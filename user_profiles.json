@@ -1,0 +1,319 @@
+{
+  "profiles": {
+    "admin": {
+      "name": "Administrador",
+      "description": "Acesso completo a todos os dados e funcionalidades",
+      "permissions": {
+        "view_company_details": true,
+        "view_project_names": true,
+        "view_financial_data": true,
+        "view_detailed_metrics": true
+      }
+    },
+    "manager": {
+      "name": "Gerente",
+      "description": "Acesso a dados agregados e métricas principais",
+      "permissions": {
+        "view_company_details": false,
+        "view_project_names": false,
+        "view_financial_data": true,
+        "view_detailed_metrics": true
+      }
+    },
+    "analyst": {
+      "name": "Analista",
+      "description": "Acesso a métricas de mercado e dados públicos",
+      "permissions": {
+        "view_company_details": false,
+        "view_project_names": false,
+        "view_financial_data": true,
+        "view_detailed_metrics": false
+      }
+    },
+    "viewer": {
+      "name": "Visualizador",
+      "description": "Acesso básico apenas a dados públicos agregados",
+      "permissions": {
+        "view_company_details": false,
+        "view_project_names": false,
+        "view_financial_data": false,
+        "view_detailed_metrics": false
+      }
+    }
+  },
+  "users": {
+    "alexandre@opiniao.inf.br": {
+      "name": "Alexandre",
+      "profile": "admin",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.722100",
+      "last_access": "2025-12-17T19:11:22.271174"
+    },
+    "andre@opiniao.inf.br": {
+      "name": "Andre",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.724137",
+      "last_access": "2025-12-17T18:12:45.354733"
+    },
+    "alexopiniao@gmail.com": {
+      "name": "Alexopiniao",
+      "profile": "analyst",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.726030",
+      "last_access": "2025-12-17T18:13:09.112175"
+    },
+    "comunicacomaguia@gmail.com": {
+      "name": "Comunicacomaguia",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.727154",
+      "last_access": null
+    },
+    "lu.improta@gmail.com": {
+      "name": "Lu.Improta",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.727746",
+      "last_access": null
+    },
+    "ramoelc@gmail.com": {
+      "name": "Ramoelc",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.728253",
+      "last_access": null
+    },
+    "babujunior1980@gmail.com": {
+      "name": "Babujunior1980",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.728770",
+      "last_access": null
+    },
+    "leonardo@faenge.com.br": {
+      "name": "Leonardo",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.729296",
+      "last_access": null
+    },
+    "joaocsiqueiralopes@gmail.com": {
+      "name": "Joaocsiqueiralopes",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.729988",
+      "last_access": null
+    },
+    "cfracon40@gmail.com": {
+      "name": "Cfracon40",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.731177",
+      "last_access": null
+    },
+    "sec.ademidf@gmail.com": {
+      "name": "Sec.Ademidf",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.732332",
+      "last_access": null
+    },
+    "mateus.mazzo@jcgontijo.com.br": {
+      "name": "Mateus.Mazzo",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.733320",
+      "last_access": null
+    },
+    "ana.oliveira@jcgontijo.com.br": {
+      "name": "Ana.Oliveira",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.734314",
+      "last_access": null
+    },
+    "arthur@gsabr.com": {
+      "name": "Arthur",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.735282",
+      "last_access": null
+    },
+    "betobasecel@gmail.com": {
+      "name": "Betobasecel",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.736271",
+      "last_access": null
+    },
+    "silvana.souza@terral.com.br": {
+      "name": "Silvana.Souza",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.737248",
+      "last_access": null
+    },
+    "jose.junior.terral@gmail.com": {
+      "name": "Jose.Junior.Terral",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.738413",
+      "last_access": null
+    },
+    "andre.vidal123@gmail.com": {
+      "name": "Andre.Vidal123",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.739217",
+      "last_access": null
+    },
+    "thiago.sousa@ebm.com.br": {
+      "name": "Thiago.Sousa",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.740076",
+      "last_access": null
+    },
+    "marceles.filho@ebm.com.br": {
+      "name": "Marceles.Filho",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.740836",
+      "last_access": null
+    },
+    "livia.almeida@grupoattos.com.br": {
+      "name": "Livia.Almeida",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.741771",
+      "last_access": null
+    },
+    "canvasattos@gmail.com": {
+      "name": "Canvasattos",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.742429",
+      "last_access": null
+    },
+    "juliana.oliveira@ecapengenharia.com.br": {
+      "name": "Juliana.Oliveira",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.743045",
+      "last_access": null
+    },
+    "arochaunb@gmail.com": {
+      "name": "Arochaunb",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.743771",
+      "last_access": null
+    },
+    "fabiof.olv@gmail.com": {
+      "name": "Fabiof.Olv",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.744578",
+      "last_access": null
+    },
+    "comercialaccioly@gmail.com": {
+      "name": "Comercialaccioly",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.745343",
+      "last_access": null
+    },
+    "zeliafernandes.vecon@gmail.com": {
+      "name": "Zeliafernandes.Vecon",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.746148",
+      "last_access": null
+    },
+    "fduarte1303@gmail.com": {
+      "name": "Fduarte1303",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.746880",
+      "last_access": null
+    },
+    "lcsantos.bsb@gmail.com": {
+      "name": "Lcsantos.Bsb",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.747455",
+      "last_access": null
+    },
+    "pedroavilajr@gmail.com": {
+      "name": "Pedroavilajr",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.748255",
+      "last_access": null
+    },
+    "mamdemartini@gmail.com": {
+      "name": "Mamdemartini",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.748894",
+      "last_access": null
+    },
+    "fdamasobrasal@gmail.com": {
+      "name": "Fdamasobrasal",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.749517",
+      "last_access": null
+    },
+    "moraesreisana@gmail.com": {
+      "name": "Moraesreisana",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T12:24:46.750327",
+      "last_access": null
+    },
+    "demo_manager@sistema.local": {
+      "name": "Demo Manager",
+      "profile": "manager",
+      "active": false,
+      "created_at": "2025-12-17T12:50:14.559066",
+      "last_access": "2025-12-17T12:50:14.559725"
+    },
+    "admin@empresa.com": {
+      "name": "Administrador",
+      "profile": "admin",
+      "active": true,
+      "created_at": "2025-12-17T19:09:57.372438",
+      "last_access": null
+    },
+    "gerente@empresa.com": {
+      "name": "Gerente Regional",
+      "profile": "manager",
+      "active": true,
+      "created_at": "2025-12-17T19:09:57.373096",
+      "last_access": null
+    },
+    "analista@empresa.com": {
+      "name": "Analista Junior",
+      "profile": "analyst",
+      "active": true,
+      "created_at": "2025-12-17T19:09:57.373860",
+      "last_access": "2025-12-17T19:09:57.375335"
+    },
+    "visualizador@empresa.com": {
+      "name": "Usuário Básico",
+      "profile": "viewer",
+      "active": true,
+      "created_at": "2025-12-17T19:09:57.374571",
+      "last_access": null
+    },
+    "teste@teste.com": {
+      "name": "Alex",
+      "profile": "admin",
+      "active": false,
+      "created_at": "2025-12-17T19:04:22.952931",
+      "last_access": null
+    }
+  }
+}

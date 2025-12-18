@@ -4,8 +4,8 @@ import os
 import json
 import traceback
 import secrets
-from datetime import timedelta
-import uuid  # (ADDED) para gerar session_id único
+from datetime import timedelta, datetime
+import uuid
 
 # ==========================
 # CONFIGURAÇÃO PRINCIPAL
@@ -32,20 +32,83 @@ google = oauth.register(
 )
 
 # ==========================
-# CAMINHO DO ARQUIVO allowed_users.json
+# CONFIGURAÇÃO DE USUÁRIOS E PERFIS (fonte única: user_profiles.json)
 # ==========================
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-ALLOWED_USERS_PATH = os.path.join(BASE_DIR, 'allowed_users.json')
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+USER_PROFILES_PATH = os.path.join(BASE_DIR, 'user_profiles.json')
 
-if not os.path.exists(ALLOWED_USERS_PATH):
-    raise FileNotFoundError(f"❌ Arquivo 'allowed_users.json' não encontrado em: {ALLOWED_USERS_PATH}")
+def load_user_config():
+    """Carrega configuração completa de usuários e perfis"""
+    try:
+        if not os.path.exists(USER_PROFILES_PATH):
+            print(f"⚠️ user_profiles.json não encontrado em: {USER_PROFILES_PATH}")
+            return {}
+            
+        with open(USER_PROFILES_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        users = config.get('users', {})
+        active_users = [email for email, data in users.items() if data.get('active', False)]
+        
+        print(f"✅ user_profiles.json carregado com sucesso")
+        print(f"📊 Total de usuários: {len(users)}")
+        print(f"👥 Usuários ativos: {len(active_users)}")
+        print(f"📂 Caminho: {USER_PROFILES_PATH}")
+        
+        return config
+        
+    except Exception as e:
+        print(f"❌ Erro ao carregar user_profiles.json: {e}")
+        return {}
 
-with open(ALLOWED_USERS_PATH, 'r') as f:
-    allowed_users = json.load(f)
+def is_user_authorized(email):
+    """Verifica se usuário está autorizado e ativo"""
+    config = load_user_config()
+    users = config.get('users', {})
+    user_data = users.get(email, {})
+    return user_data.get('active', False)
 
-print(f"✅ allowed_users.json carregado com sucesso ({len(allowed_users)} registros)")
-print(f"📂 Caminho absoluto: {ALLOWED_USERS_PATH}")
+def get_user_profile(user_email):
+    """Determina o perfil do usuário e atualiza último acesso"""
+    try:
+        config = load_user_config()
+        users = config.get('users', {})
+        user_data = users.get(user_email, {})
+        
+        if not user_data.get('active', False):
+            print(f"⚠️ Usuário {user_email} está desativado")
+            return 'viewer'
+        
+        profile = user_data.get('profile', 'viewer')
+        print(f"📋 {user_email} → perfil: {profile}")
+        
+        # Atualizar último acesso
+        update_user_last_access(user_email)
+        
+        return profile
+        
+    except Exception as e:
+        print(f"❌ Erro ao obter perfil do usuário: {e}")
+        return 'viewer'
 
+def update_user_last_access(user_email):
+    """Atualiza o timestamp de último acesso do usuário"""
+    try:
+        with open(USER_PROFILES_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        if user_email in config.get('users', {}):
+            config['users'][user_email]['last_access'] = datetime.now().isoformat()
+            
+            with open(USER_PROFILES_PATH, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+                
+    except Exception as e:
+        print(f"⚠️ Erro ao atualizar último acesso: {e}")
+
+# Carregar configuração inicial
+user_config = load_user_config()
+    
 # ==========================
 # CONTROLE DE SESSÃO ÚNICA (ADDED)
 # ==========================
@@ -147,11 +210,8 @@ def authorize():
         user_email = user_info.get("email")
         print(f"✅ Login bem-sucedido: {user_email}")
 
-        # Recarrega a lista de usuários permitidos
-        with open(ALLOWED_USERS_PATH, 'r') as f:
-            allowed_users = json.load(f)
-
-        if user_email not in allowed_users:
+        # Verificar se usuário está autorizado e ativo
+        if not is_user_authorized(user_email):
             print(f"⛔ Acesso negado para {user_email}")
             session.clear()
             return redirect(url_for("acesso_negado"))
@@ -183,21 +243,54 @@ def acesso_negado():
 
 @app.route("/dashboard")
 def dashboard():
-    """Página principal (protegida)"""
+    """Página principal - serve dashboard baseado no perfil do usuário"""
     try:
         if "user" not in session:
             print("🚫 Acesso negado — redirecionando para login")
             return redirect(url_for("login"))
 
-        print(f"✅ Usuário autenticado: {session['user']['email']}")
+        user_email = session['user']['email']
+        user_profile = get_user_profile(user_email)
+        
+        print(f"✅ Usuário autenticado: {user_email} (perfil: {user_profile})")
+        
+        # Determina qual dashboard servir baseado no perfil
+        dashboard_file = f"dashboard_{user_profile}.html"
+        
+        # Verifica se arquivo específico do perfil existe
         caminho_templates = os.path.join(app.root_path, "templates")
-        return send_from_directory(caminho_templates, "dashboard.html")
+        dashboard_path = os.path.join(caminho_templates, dashboard_file)
+        
+        if not os.path.exists(dashboard_path):
+            print(f"⚠️ {dashboard_file} não encontrado, usando dashboard.html padrão")
+            dashboard_file = "dashboard.html"
+        
+        print(f"📊 Servindo: {dashboard_file}")
+        return send_from_directory(caminho_templates, dashboard_file)
 
     except Exception as e:
         print("❌ ERRO EM /dashboard:", e)
         traceback.print_exc()
         return f"Erro interno: {e}", 500
 
+@app.route("/debug/profile")
+def debug_profile():
+    """Rota de debug para ver perfil do usuário (remover em produção)"""
+    if "user" not in session:
+        return "Não logado", 401
+    
+    user_email = session['user']['email']
+    user_profile = get_user_profile(user_email)
+    
+    return f"""
+    <h2>Debug - Informações do Usuário</h2>
+    <p><strong>Email:</strong> {user_email}</p>
+    <p><strong>Perfil:</strong> {user_profile}</p>
+    <p><strong>Dashboard esperado:</strong> dashboard_{user_profile}.html</p>
+    <br>
+    <a href="/dashboard">Ir para Dashboard</a> | 
+    <a href="/logout">Logout</a>
+    """
 
 @app.route("/logout")
 def logout():
