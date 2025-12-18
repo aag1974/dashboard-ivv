@@ -1,2 +1,2 @@
-auth_server/templates/dashboard*.html filter=lfs diff=lfs merge=lfs -text
-auth_server/templates/*.html filter=lfs diff=lfs merge=lfs -text
+templates/dashboard*.html filter=lfs diff=lfs merge=lfs -text
+templates/*.html filter=lfs diff=lfs merge=lfs -text
