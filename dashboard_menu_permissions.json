@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-17T16:59:58.629764",
+  "generated_at": "2025-12-18T15:17:02.980480",
   "menu_permissions": {
     "admin": {
       "residencial": [
@@ -46,23 +46,86 @@
     "manager": {
       "residencial": [
         "ivv",
-        "oferta"
+        "oferta",
+        "venda",
+        "lancamentos",
+        "oferta_m2",
+        "venda_m2",
+        "valor_ponderado_oferta",
+        "valor_ponderado_venda",
+        "vgl",
+        "vgv",
+        "distratos"
       ],
       "comercial": [
         "ivv",
+        "oferta",
         "venda",
-        "valor_ponderado_oferta"
+        "lancamentos",
+        "oferta_m2",
+        "venda_m2",
+        "valor_ponderado_oferta",
+        "valor_ponderado_venda",
+        "vgl",
+        "vgv",
+        "distratos"
       ],
       "crosstabs": [
         "ofertas_por_regiao",
-        "vendas_por_regiao"
+        "vendas_por_regiao",
+        "oferta_valor_pond_regiao",
+        "venda_valor_pond_regiao",
+        "oferta_m2_regiao",
+        "venda_m2_regiao",
+        "gastos_pos_entrega_regiao",
+        "gastos_categoria_regiao"
       ],
       "insights": [
         "indicadores_economicos",
         "correlacoes"
       ]
     },
-    "analyst": {},
-    "viewer": {}
+    "analyst": {
+      "residencial": [
+        "ivv",
+        "oferta",
+        "venda",
+        "lancamentos",
+        "oferta_m2",
+        "venda_m2",
+        "valor_ponderado_oferta"
+      ],
+      "comercial": [
+        "ivv",
+        "oferta",
+        "venda",
+        "lancamentos",
+        "oferta_m2",
+        "venda_m2",
+        "valor_ponderado_oferta"
+      ],
+      "crosstabs": [
+        "ofertas_por_regiao",
+        "vendas_por_regiao",
+        "oferta_m2_regiao",
+        "venda_m2_regiao"
+      ]
+    },
+    "viewer": {
+      "residencial": [
+        "ivv",
+        "oferta",
+        "venda"
+      ],
+      "comercial": [
+        "ivv",
+        "oferta",
+        "venda"
+      ],
+      "crosstabs": [
+        "ofertas_por_regiao",
+        "vendas_por_regiao"
+      ]
+    }
   }
 }
