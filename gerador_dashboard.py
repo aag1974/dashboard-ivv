@@ -1514,6 +1514,16 @@ class DashboardGenerator:
             font-weight: 500;
         }
 
+        /* Logout link inside the user info container */
+        .logout-link {
+            display: block;
+            margin-top: 5px;
+            font-size: 10px;
+            color: #2196F3;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
         .header-content {
             flex-grow: 1;
         }
@@ -2446,6 +2456,8 @@ class DashboardGenerator:
             <div class="user-permissions" id="userPermissions" style="font-size: 10px; color: #666; margin-top: 5px;">
                 {'🔓 Acesso Completo' if self.user_authenticated and self.permission_manager.has_permission('view_company_details') else '🔒 Acesso Restrito'}
             </div>
+            <!-- Link de logout dentro do painel de informações do usuário -->
+            <a href="/logout" class="logout-link">Sair</a>
         </div>
         <ul class="nav-main">
             <li class="nav-item active" onclick="handleViewClick('residencial', event)" data-view="residencial" data-tooltip="Residencial">
