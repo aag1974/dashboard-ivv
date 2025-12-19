@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-18T15:17:02.980480",
+  "generated_at": "2025-12-19T11:07:07.963931",
   "menu_permissions": {
     "admin": {
       "residencial": [
@@ -92,8 +92,7 @@
         "venda",
         "lancamentos",
         "oferta_m2",
-        "venda_m2",
-        "valor_ponderado_oferta"
+        "venda_m2"
       ],
       "comercial": [
         "ivv",
@@ -101,14 +100,19 @@
         "venda",
         "lancamentos",
         "oferta_m2",
-        "venda_m2",
-        "valor_ponderado_oferta"
+        "venda_m2"
       ],
       "crosstabs": [
         "ofertas_por_regiao",
         "vendas_por_regiao",
         "oferta_m2_regiao",
-        "venda_m2_regiao"
+        "venda_m2_regiao",
+        "gastos_pos_entrega_regiao",
+        "gastos_categoria_regiao"
+      ],
+      "insights": [
+        "indicadores_economicos",
+        "correlacoes"
       ]
     },
     "viewer": {
