@@ -1,3 +1,0 @@
-git add .
-git commit -m "Usuario BRB Analista"
-git push origin main

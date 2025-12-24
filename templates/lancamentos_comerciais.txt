@@ -1,0 +1,4 @@
+=== LANÇAMENTOS POR ANO ===
+Regra: Cada empreendimento é contado quando o incorporador o insere no sistema como lançamento.
+Fases posteriores são ignoradas.
+
