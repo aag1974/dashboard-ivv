@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-19T11:07:07.963931",
+  "generated_at": "2025-12-24T17:15:29.628343",
   "menu_permissions": {
     "admin": {
       "residencial": [
@@ -29,6 +29,7 @@
         "distratos"
       ],
       "crosstabs": [
+        "ivv_por_regiao",
         "ofertas_por_regiao",
         "vendas_por_regiao",
         "oferta_valor_pond_regiao",
@@ -71,6 +72,7 @@
         "distratos"
       ],
       "crosstabs": [
+        "ivv_por_regiao",
         "ofertas_por_regiao",
         "vendas_por_regiao",
         "oferta_valor_pond_regiao",
@@ -103,6 +105,7 @@
         "venda_m2"
       ],
       "crosstabs": [
+        "ivv_por_regiao",
         "ofertas_por_regiao",
         "vendas_por_regiao",
         "oferta_m2_regiao",
@@ -127,6 +130,7 @@
         "venda"
       ],
       "crosstabs": [
+        "ivv_por_regiao",
         "ofertas_por_regiao",
         "vendas_por_regiao"
       ]

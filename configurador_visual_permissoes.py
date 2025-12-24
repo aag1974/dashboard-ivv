@@ -55,7 +55,7 @@ class VisualPermissionConfigurator:
                 'valor_ponderado_oferta', 'valor_ponderado_venda', 'vgl', 'vgv', 'distratos'
             ],
             'crosstabs': [
-                'ofertas_por_regiao', 'vendas_por_regiao', 'oferta_valor_pond_regiao',
+                'ivv_por_regiao','ofertas_por_regiao', 'vendas_por_regiao', 'oferta_valor_pond_regiao',
                 'venda_valor_pond_regiao', 'oferta_m2_regiao', 'venda_m2_regiao',
                 'gastos_pos_entrega_regiao', 'gastos_categoria_regiao'
             ],
@@ -248,6 +248,7 @@ class VisualPermissionConfigurator:
             'vgl': 'VGL',
             'vgv': 'VGV',
             'distratos': 'Distratos',
+            'ivv_por_regiao': 'IVV por Região',
             'ofertas_por_regiao': 'Ofertas por Região',
             'vendas_por_regiao': 'Vendas por Região',
             'oferta_valor_pond_regiao': 'Oferta Valor Pond. p/ Região',

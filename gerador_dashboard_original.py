@@ -287,7 +287,7 @@ class DashboardGenerator:
                         'submenus': {
                             'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
                             'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
-                            'crosstabs': ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2'],
+                            'crosstabs': ['oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2'],
                             'insights': ['indicadores_economicos','correlacoes']
                         }
                     },
@@ -1312,7 +1312,7 @@ class DashboardGenerator:
                 user_menu_config = {
                     'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
                     'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
-                    'crosstabs': ['ivv_por_regiao','ofertas_por_regiao','vendas_por_regiao','oferta_valor_pond_regiao','venda_valor_pond_regiao','oferta_m2_regiao','venda_m2_regiao','gastos_pos_entrega_regiao','gastos_categoria_regiao'],
+                    'crosstabs': ['ofertas_por_regiao','vendas_por_regiao','oferta_valor_pond_regiao','venda_valor_pond_regiao','oferta_m2_regiao','venda_m2_regiao','gastos_pos_entrega_regiao','gastos_categoria_regiao'],
                     'insights': ['indicadores_economicos','correlacoes']
                 }
                 print(f"⚠️ Usando configuração padrão para admin (todos os menus)")
@@ -1329,7 +1329,6 @@ class DashboardGenerator:
         # "ofertas_por_regiao" em vez de "oferta_quantidade"). Abaixo está o
         # mapeamento de nomes externos para nomes internos.
         mapping_crosstabs = {
-            'ivv_por_regiao': 'ivv_por_regiao',
             'ofertas_por_regiao': 'oferta_quantidade',
             'vendas_por_regiao': 'venda_quantidade',
             'oferta_valor_pond_regiao': 'valor_ponderado_oferta',
@@ -2792,7 +2791,7 @@ class DashboardGenerator:
         const viewCategories = {
             residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
             comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
-            crosstabs: ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
+            crosstabs: ['oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
             insights: ['indicadores_economicos','correlacoes']
         };
         // Nomes amigáveis para categorias
@@ -2818,7 +2817,6 @@ class DashboardGenerator:
         
         // Nomes específicos para crosstabs (incluem "p/ Região")
         const friendlyNamesCrosstabs = {
-            ivv_por_regiao: 'IVV por Região',
             oferta_quantidade: 'Ofertas por Região',
             venda_quantidade: 'Vendas por Região',
             valor_ponderado_oferta: 'Oferta Valor Pond. p/ Região',
@@ -7363,7 +7361,6 @@ function applyTrendColorsQuarterly() {
         function generateCrossData(data) {
             console.log('generateCrossData: Processando', data.length, 'registros');
             const result = {
-                ivv_por_regiao: {},
                 oferta_quantidade: {},
                 venda_quantidade: {},
                 valor_ponderado_oferta: {},
@@ -7481,56 +7478,7 @@ function applyTrendColorsQuarterly() {
                 });
                 return out;
             };
-            
-            // Calcular IVV por região (Vendas/Ofertas * 100)
-            const ivvData = {};
-            
-            console.log('🔍 DEBUG IVV - Iniciando cálculo...');
-            console.log('Dados de vendas por bairro:', Object.keys(result.venda_quantidade));
-            console.log('Dados de ofertas por bairro:', Object.keys(result.oferta_quantidade));
-            
-            // Para cada bairro que tem dados de vendas
-            Object.keys(result.venda_quantidade).forEach(function(bairro) {
-                ivvData[bairro] = {};
-                
-                console.log(`🏘️ Processando bairro: ${bairro}`);
-                console.log(`  Vendas:`, result.venda_quantidade[bairro]);
-                console.log(`  Ofertas:`, result.oferta_quantidade[bairro] || 'SEM DADOS');
-                
-                // Para cada número de quartos
-                Object.keys(result.venda_quantidade[bairro]).forEach(function(quartos) {
-                    const vendas = result.venda_quantidade[bairro][quartos] || 0;
-                    const ofertas = (result.oferta_quantidade[bairro] && result.oferta_quantidade[bairro][quartos]) || 0;
-                    
-                    // Calcular IVV: (Vendas / Ofertas) * 100
-                    const ivv = ofertas > 0 ? (vendas / ofertas) * 100 : 0;
-                    ivvData[bairro][quartos] = ivv;
-                    
-                    console.log(`    ${quartos} quartos: ${vendas} vendas / ${ofertas} ofertas = ${ivv.toFixed(2)}%`);
-                });
-            });
-            
-            // Incluir bairros que só têm ofertas mas não vendas
-            Object.keys(result.oferta_quantidade).forEach(function(bairro) {
-                if (!ivvData[bairro]) {
-                    ivvData[bairro] = {};
-                    console.log(`🏘️ Bairro só com ofertas: ${bairro}`);
-                }
-                
-                Object.keys(result.oferta_quantidade[bairro]).forEach(function(quartos) {
-                    if (ivvData[bairro][quartos] === undefined) {
-                        const ofertas = result.oferta_quantidade[bairro][quartos] || 0;
-                        ivvData[bairro][quartos] = ofertas > 0 ? 0 : 0; // 0% se tem ofertas mas sem vendas
-                        console.log(`    ${quartos} quartos: 0 vendas / ${ofertas} ofertas = 0%`);
-                    }
-                });
-            });
-            
-            console.log('🎯 IVV Final calculado:', ivvData);
-            console.log('📊 Total de bairros com IVV:', Object.keys(ivvData).length);
-            
             const finalResult = {
-                ivv_por_regiao: ivvData,
                 oferta_quantidade: result.oferta_quantidade,
                 venda_quantidade: result.venda_quantidade,
                 valor_ponderado_oferta: computeAvg(result.valor_ponderado_oferta),
@@ -7546,7 +7494,6 @@ function applyTrendColorsQuarterly() {
             
             console.log('generateCrossData: Resultado final:', {
                 processedRows: processedRows,
-                bairrosIVV: Object.keys(finalResult.ivv_por_regiao).length,
                 bairrosOfertaQuantidade: Object.keys(finalResult.oferta_quantidade).length,
                 bairrosVendaQuantidade: Object.keys(finalResult.venda_quantidade).length,
                 bairrosOfertaValorPond: Object.keys(finalResult.valor_ponderado_oferta).length,
@@ -7704,7 +7651,7 @@ function applyTrendColorsQuarterly() {
             const cross = generateCrossData(data);
             console.log('generateCrossData resultado:', cross);
             
-            const cats = ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'];
+            const cats = ['oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'];
             cats.forEach(function(cat, index) {
                 console.log('Processando categoria:', cat);
                 const tableData = cross[cat];
@@ -7724,9 +7671,6 @@ function applyTrendColorsQuarterly() {
                 
                 let title = '';
                 switch(cat) {
-                    case 'ivv_por_regiao':
-                        title = 'IVV por região (%)';
-                        break;
                     case 'oferta_quantidade':
                         title = 'Ofertas por região';
                         break;
@@ -8276,12 +8220,6 @@ function applyTrendColorsQuarterly() {
                 } else {
 
                     // Estrutura normal para outras tabelas
-                    console.log('🎯 Processando categoria na implementação NORMAL:', cat);
-                    if (cat === 'ivv_por_regiao') {
-                        console.log('📊 IVV - Entrando na implementação normal');
-                        console.log('🔍 TableData para IVV:', tableData);
-                    }
-                    
                     const table = document.createElement('table');
                 table.className = 'data-table';
                 const thead = document.createElement('thead');
@@ -8316,11 +8254,7 @@ function applyTrendColorsQuarterly() {
                 titleRow.appendChild(thQuartos);
                 
                 const thTotalTitle = document.createElement('th');
-                if (cat === 'ivv_por_regiao') {
-                    thTotalTitle.textContent = 'IVV Médio';
-                } else {
-                    thTotalTitle.textContent = 'Total';
-                }
+                thTotalTitle.textContent = 'Total';
                 thTotalTitle.style.textAlign = 'center';
                 thTotalTitle.style.fontWeight = '600';
                 thTotalTitle.style.borderBottom = '1px solid #ddd';
@@ -8375,21 +8309,6 @@ function applyTrendColorsQuarterly() {
                     
                     if (cat.includes('valor_ponderado')) {
                         rowTotals[bairro] = rowTotalArea > 0 ? (rowTotalValor / rowTotalArea) : 0;
-                    } else if (cat === 'ivv_por_regiao') {
-                        // Para IVV, calcular usando dados brutos de vendas e ofertas
-                        let rowVendas = 0;
-                        let rowOfertas = 0;
-                        
-                        rooms.forEach(function(q) {
-                            if (cross.venda_quantidade[bairro] && cross.venda_quantidade[bairro][q]) {
-                                rowVendas += cross.venda_quantidade[bairro][q];
-                            }
-                            if (cross.oferta_quantidade[bairro] && cross.oferta_quantidade[bairro][q]) {
-                                rowOfertas += cross.oferta_quantidade[bairro][q];
-                            }
-                        });
-                        
-                        rowTotals[bairro] = rowOfertas > 0 ? (rowVendas / rowOfertas) * 100 : 0;
                     } else {
                         let rowSum = 0;
                         rooms.forEach(function(q) {
@@ -8440,9 +8359,6 @@ function applyTrendColorsQuarterly() {
                             // Converter para milhões e formatar
                             const valMilhoes = val / 1000000;
                             displayVal = valMilhoes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                        } else if (cat === 'ivv_por_regiao') {
-                            // Formatação específica para IVV (percentual com vírgula brasileira)
-                            displayVal = val.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '%';
                         } else {
                             displayVal = val.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0});
                         }
@@ -8483,9 +8399,6 @@ function applyTrendColorsQuarterly() {
                         // Para gastos pós-entrega, converter para milhões
                         const totalMilhoes = totalValue / 1000000;
                         displayTotal = totalMilhoes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    } else if (cat === 'ivv_por_regiao') {
-                        // Para IVV, formatação percentual brasileira
-                        displayTotal = totalValue.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '%';
                     } else {
                         // Para m², somar os valores
                         displayTotal = totalValue.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0});
@@ -8552,22 +8465,6 @@ function applyTrendColorsQuarterly() {
                         });
                         const sumMilhoes = sum / 1000000;
                         td.textContent = sumMilhoes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    } else if (cat === 'ivv_por_regiao') {
-                        // Para IVV, calcular total da coluna usando dados brutos
-                        let colVendas = 0;
-                        let colOfertas = 0;
-                        
-                        bairros.forEach(function(b) {
-                            if (cross.venda_quantidade[b] && cross.venda_quantidade[b][q]) {
-                                colVendas += cross.venda_quantidade[b][q];
-                            }
-                            if (cross.oferta_quantidade[b] && cross.oferta_quantidade[b][q]) {
-                                colOfertas += cross.oferta_quantidade[b][q];
-                            }
-                        });
-                        
-                        const colIVV = colOfertas > 0 ? (colVendas / colOfertas) * 100 : 0;
-                        td.textContent = colIVV.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '%';
                     } else {
                         // Para m², somar os valores
                         let sum = 0;
@@ -8609,24 +8506,6 @@ function applyTrendColorsQuarterly() {
                     });
                     const grandMilhoes = grand / 1000000;
                     tdGrand.textContent = grandMilhoes.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                } else if (cat === 'ivv_por_regiao') {
-                    // Para IVV, calcular total geral usando dados brutos
-                    let grandVendas = 0;
-                    let grandOfertas = 0;
-                    
-                    bairros.forEach(function(b) {
-                        rooms.forEach(function(q) {
-                            if (cross.venda_quantidade[b] && cross.venda_quantidade[b][q]) {
-                                grandVendas += cross.venda_quantidade[b][q];
-                            }
-                            if (cross.oferta_quantidade[b] && cross.oferta_quantidade[b][q]) {
-                                grandOfertas += cross.oferta_quantidade[b][q];
-                            }
-                        });
-                    });
-                    
-                    const grandIVV = grandOfertas > 0 ? (grandVendas / grandOfertas) * 100 : 0;
-                    tdGrand.textContent = grandIVV.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '%';
                 } else {
                     // Para m², somar todos os valores
                     let grand = 0;
@@ -8641,24 +8520,6 @@ function applyTrendColorsQuarterly() {
                 tbody.appendChild(totalRow);
                 table.appendChild(tbody);
                 groupDiv.appendChild(table);
-                
-                // Adicionar legenda explicativa para IVV
-                if (cat === 'ivv_por_regiao') {
-                    const legendDiv = document.createElement('div');
-                    legendDiv.style.marginTop = '15px';
-                    legendDiv.style.fontSize = '13px';
-                    legendDiv.style.color = '#555';
-                    legendDiv.style.padding = '12px';
-                    legendDiv.style.backgroundColor = '#f8f9fa';
-                    legendDiv.style.borderLeft = '3px solid #4A90E2';
-                    legendDiv.style.borderRadius = '4px';
-                    legendDiv.style.lineHeight = '1.6';
-                    legendDiv.innerHTML = '<strong>📊 IVV (Índice de Velocidade de Vendas):</strong> Calcula a relação percentual entre vendas realizadas e unidades ofertadas por região.<br>' +
-                        '<strong>Fórmula:</strong> (Vendas ÷ Ofertas Disponíveis) × 100<br>' +
-                        '<strong>Interpretação:</strong> Quanto maior o percentual, melhor a performance de vendas da região.';
-                    groupDiv.appendChild(legendDiv);
-                }
-                
                 } // Fechamento do bloco else
                 
                 // Rodapé unificado para gastos_pos_entrega
