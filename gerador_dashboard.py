@@ -532,9 +532,7 @@ class DashboardGenerator:
             r'\s+COM\s+TERRAÇO',               
             r'\s+STUDIO\b',                    
             r'\s+LOFT\b',                      
-            r'\s+[0-9]+\s+SUÍTES?\b',          
-            r'\s+D[0-9]+\b',                   
-            r'\s+C[0-9]+\b',                   
+            r'\s+[0-9]+\s+SUÍTES?\b'                   
         ]
         
         # Criar coluna com termo principal (normalizado)
