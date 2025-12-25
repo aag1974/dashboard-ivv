@@ -1795,6 +1795,14 @@ class DashboardGenerator:
             background-color: #F8F9FA;
         }
 
+        .data-table th,
+        .data-table td {
+            height: 24px;          /* ALTURA PADRÃO DA LINHA */
+            line-height: 24px;     /* TEXTO CENTRALIZADO NA ALTURA */
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
         .variation-row {
             background: #F8F9FA !important;
             font-weight: 600;
@@ -2343,7 +2351,16 @@ class DashboardGenerator:
                 text-align: left;
                 white-space: nowrap;
             }
-            
+
+            .data-table th,
+            .data-table td {
+                padding: 6px 4px;
+                height: 24px;
+                line-height: 24px;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
             /* INSIGHTS MOBILE - AJUSTES COMPACTOS */
             .insights-container {
                 gap: 12px;              /* REDUZA de 15px para 12px */
