@@ -285,8 +285,8 @@ class DashboardGenerator:
                     'admin': {
                         'menus': ['residencial', 'comercial', 'crosstabs', 'insights'],
                         'submenus': {
-                            'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
-                            'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
+                            'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_vendas','vgv_ofertas','distratos'],
+                            'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_vendas','vgv_ofertas','distratos'],
                             'crosstabs': ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2'],
                             'insights': ['indicadores_economicos','correlacoes']
                         }
@@ -294,8 +294,8 @@ class DashboardGenerator:
                     'manager': {
                         'menus': ['residencial', 'comercial'],
                         'submenus': {
-                            'residencial': ['ivv','oferta','venda','vgl','vgv'],
-                            'comercial': ['ivv','oferta','venda']
+                            'residencial': ['ivv','oferta','venda','vgl','vgv_vendas','vgv_ofertas'],
+                            'comercial': ['ivv','oferta','venda','vgl','vgv_vendas','vgv_ofertas']
                         }
                     },
                     'analyst': {
@@ -2788,8 +2788,8 @@ class DashboardGenerator:
         
         // Mapeamento de categorias por view
         const viewCategories = {
-            residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
-            comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv','distratos'],
+            residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
+            comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
             crosstabs: ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
             insights: ['indicadores_economicos','correlacoes']
         };
@@ -2803,10 +2803,11 @@ class DashboardGenerator:
             venda_quantidade: 'Vendas por Região',
             oferta_m2: 'Oferta em m²',
             venda_m2: 'Venda em m²',
-            valor_ponderado_oferta: 'Oferta Valor Ponderado',
-            valor_ponderado_venda: 'Venda Valor Ponderado',
+            valor_ponderado_oferta: 'Preço de Oferta',
+            valor_ponderado_venda: 'Preço de Venda',
             vgl: 'VGL',
-            vgv: 'VGV',
+            vgv_ofertas: 'VGV sobre Ofertas',
+            vgv_vendas: 'VGV sobre Vendas',
             distratos: 'Distratos',
             indicadores_economicos: 'Indicadores Econômicos',
             correlacoes: 'Correlações',
@@ -2819,8 +2820,8 @@ class DashboardGenerator:
             ivv_por_regiao: 'IVV por Região',
             oferta_quantidade: 'Ofertas por Região',
             venda_quantidade: 'Vendas por Região',
-            valor_ponderado_oferta: 'Oferta Valor Pond. p/ Região',
-            valor_ponderado_venda: 'Venda Valor Pond. p/ Região',
+            valor_ponderado_oferta: 'Preço de Oferta p/ Região',
+            valor_ponderado_venda: 'Preço de Venda p/ Região',
             oferta_m2: 'Oferta em m² p/ Região',
             venda_m2: 'Venda em m² p/ Região',
             gastos_pos_entrega: 'Gastos Pós-entrega p/ Região',
@@ -3169,18 +3170,27 @@ class DashboardGenerator:
             };
         }
 
-        // Função para normalizar dados para base 100
+        // Função para normalizar dados para base 100 - CORRIGIDA
         function normalizeToBase100(values) {
             if (!values || values.length === 0) return [];
             
-            // Encontrar primeiro valor válido (> 0) como base
-            const baseValue = values.find(v => v > 0);
-            if (!baseValue) return values;
+            // Encontrar primeiro valor válido (> 0) como base, mas tratando zeros adequadamente
+            const validValues = values.filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+            if (validValues.length === 0) {
+                // Se não há valores válidos, retornar array de zeros
+                return values.map(() => 0);
+            }
             
-            return values.map(v => v > 0 ? (v / baseValue) * 100 : null);
+            const baseValue = validValues[0]; // Usar primeiro valor válido como base
+            
+            return values.map(v => {
+                if (v === null || v === undefined || isNaN(v)) return 0;
+                return v > 0 ? (v / baseValue) * 100 : 0;
+            });
         }
         
         // Função para calcular média móvel
+        // Função para calcular média móvel - CORRIGIDA
         function calculateRollingAverage(values, window) {
             if (!values || values.length === 0) return [];
             
@@ -3188,25 +3198,27 @@ class DashboardGenerator:
             for (let i = 0; i < values.length; i++) {
                 if (i < window - 1) {
                     // Primeiros valores = originais (até completar janela)
-                    result.push(values[i]);
+                    result.push(values[i] || 0);
                 } else {
                     // Calcular média dos últimos 'window' valores
                     const slice = values.slice(i - window + 1, i + 1);
-                    const validValues = slice.filter(v => v !== null && v !== undefined);
+                    const validValues = slice.filter(v => v !== null && v !== undefined && !isNaN(v));
                     if (validValues.length > 0) {
                         const avg = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
                         result.push(avg);
                     } else {
-                        result.push(values[i]);
+                        result.push(values[i] || 0);
                     }
                 }
             }
             return result;
         }
 
-        // Calcular variáveis secundárias do mercado imobiliário
+        // Calcular variáveis secundárias do mercado imobiliário - DEBUG ESSENCIAL
         function calculateSecondaryVariables(residentialData) {
             const monthlyData = {};
+            
+            console.log('📊 calculateSecondaryVariables: Processando', residentialData.length, 'registros');
             
             residentialData.forEach(row => {
                 const period = row.ANO_MES;
@@ -3216,106 +3228,115 @@ class DashboardGenerator:
                     monthlyData[period] = {
                         vendas: 0,
                         ofertas: 0,
-                        lancamentos: 0,
+                        ofertasUnidades: 0,
                         vgl: 0,
-                        vgv: 0,
-                        ofertasUnidades: 0
+                        vgv_vendas: 0,
+                        vgv_ofertas: 0,
+                        lancamentos: 0
                     };
                 }
                 
                 const quantidade = row.QUANTIDADE || 0;
                 const valor = row.AREA_QUANTIDADE_VALOR || 0;
                 
+                // VENDAS → fluxo
                 if (row.OFERTA_VENDA === 'VENDIDOS' || row.OFERTA_VENDA === 'VENDIDOS - LANCADOS E VENDIDOS') {
                     monthlyData[period].vendas += quantidade;
-                    monthlyData[period].vgv += valor;
-                } else if (row.OFERTA_VENDA === 'OFERTADOS DISPONIVEIS' || row.OFERTA_VENDA === 'OFERTADOS LANCAMENTOS') {
-                    monthlyData[period].ofertas += quantidade;
-                    monthlyData[period].ofertasUnidades += quantidade;
+                    monthlyData[period].vgv_vendas += valor;
                 }
                 
+                // OFERTAS → estoque
+                else if (row.OFERTA_VENDA === 'OFERTADOS DISPONIVEIS' || row.OFERTA_VENDA === 'OFERTADOS LANCAMENTOS') {
+                    monthlyData[period].ofertas += quantidade;
+                    monthlyData[period].ofertasUnidades += quantidade;
+                    monthlyData[period].vgv_ofertas += valor;
+                }
+                
+                // LANÇAMENTOS (subconjunto das ofertas)
                 if (row.OFERTA_VENDA === 'OFERTADOS LANCAMENTOS') {
                     monthlyData[period].lancamentos += quantidade;
                     monthlyData[period].vgl += valor;
                 }
             });
             
-            // Calcular IVV
+            // Debug mínimo necessário
+            const totalVGVVendas = Object.values(monthlyData).reduce((sum, m) => sum + m.vgv_vendas, 0);
+            const totalVGVOfertas = Object.values(monthlyData).reduce((sum, m) => sum + m.vgv_ofertas, 0);
+            console.log('💰 VGV VENDAS Total: R$', (totalVGVVendas/1000000).toFixed(1), 'Mi');
+            console.log('💰 VGV OFERTAS Total: R$', (totalVGVOfertas/1000000).toFixed(1), 'Mi');
+            
+            // Calcular IVV (absorção)
             const ivv = {};
             Object.keys(monthlyData).forEach(period => {
-                const data = monthlyData[period];
-                ivv[period] = data.ofertasUnidades > 0 ? (data.vendas / data.ofertasUnidades) * 100 : 0;
+                const d = monthlyData[period];
+                ivv[period] = d.ofertasUnidades > 0
+                    ? (d.vendas / d.ofertasUnidades) * 100
+                    : 0;
             });
             
-            // Converter para arrays ordenados
-            const periods = Object.keys(monthlyData).map(p => parseInt(p)).sort((a, b) => a - b);
+            // Ordenar períodos
+            const periods = Object.keys(monthlyData)
+                .map(p => parseInt(p))
+                .sort((a, b) => a - b);
             
-            // Arrays com dados mensais originais
+            // Séries mensais originais
             const monthlyArrays = {
                 ivv: periods.map(p => ivv[p] || 0),
                 oferta: periods.map(p => monthlyData[p].ofertas),
                 venda: periods.map(p => monthlyData[p].vendas),
-                vgl: periods.map(p => monthlyData[p].vgl / 1000000), // Converter para milhões
-                vgv: periods.map(p => monthlyData[p].vgv / 1000000), // Converter para milhões
+                vgl: periods.map(p => monthlyData[p].vgl / 1_000_000),
+                vgv_vendas: periods.map(p => monthlyData[p].vgv_vendas / 1_000_000),
+                vgv_ofertas: periods.map(p => monthlyData[p].vgv_ofertas / 1_000_000),
                 lancamentos: periods.map(p => monthlyData[p].lancamentos)
             };
             
-            // Aplicar base 100 aos dados mensais
+            console.log('📊 VGV VENDAS (primeiros valores):', monthlyArrays.vgv_vendas.slice(0, 3));
+            console.log('📊 VGV OFERTAS (primeiros valores):', monthlyArrays.vgv_ofertas.slice(0, 3));
+            
+            // Base 100
             const base100Arrays = {
                 ivv: normalizeToBase100(monthlyArrays.ivv),
                 oferta: normalizeToBase100(monthlyArrays.oferta),
                 venda: normalizeToBase100(monthlyArrays.venda),
                 vgl: normalizeToBase100(monthlyArrays.vgl),
-                vgv: normalizeToBase100(monthlyArrays.vgv),
+                vgv_vendas: normalizeToBase100(monthlyArrays.vgv_vendas),
+                vgv_ofertas: normalizeToBase100(monthlyArrays.vgv_ofertas),
                 lancamentos: normalizeToBase100(monthlyArrays.lancamentos)
             };
             
-            // Aplicar médias móveis aos dados base 100
+            // Média móvel (MM3)
             const smoothedArrays = {
                 ivv: calculateRollingAverage(base100Arrays.ivv, 3),
                 oferta: calculateRollingAverage(base100Arrays.oferta, 3),
                 venda: calculateRollingAverage(base100Arrays.venda, 3),
                 vgl: calculateRollingAverage(base100Arrays.vgl, 3),
-                vgv: calculateRollingAverage(base100Arrays.vgv, 3),
+                vgv_vendas: calculateRollingAverage(base100Arrays.vgv_vendas, 3),
+                vgv_ofertas: calculateRollingAverage(base100Arrays.vgv_ofertas, 3),
                 lancamentos: calculateRollingAverage(base100Arrays.lancamentos, 3)
             };
             
-            // Debug logs
-            console.log('📊 Variáveis de Mercado - Transformações aplicadas:');
-            console.log('📈 Dados originais (primeiros 5):', {
-                ivv: monthlyArrays.ivv.slice(0, 5),
-                oferta: monthlyArrays.oferta.slice(0, 5),
-                venda: monthlyArrays.venda.slice(0, 5)
-            });
-            console.log('💯 Base 100 (primeiros 5):', {
-                ivv: base100Arrays.ivv.slice(0, 5),
-                oferta: base100Arrays.oferta.slice(0, 5),
-                venda: base100Arrays.venda.slice(0, 5)
-            });
-            console.log('📊 Suavizados (primeiros 5):', {
-                ivv: smoothedArrays.ivv.slice(0, 5),
-                oferta: smoothedArrays.oferta.slice(0, 5),
-                venda: smoothedArrays.venda.slice(0, 5)
-            });
+            console.log('📈 Dados finais calculados com sucesso');
             
             return {
                 periods: periods,
                 labels: periods.map(formatMesAbrev),
                 
-                // Dados finais: base 100 + suavizados (para correlações e gráfico)
+                // Séries finais (Base 100 + MM3)
                 ivv: smoothedArrays.ivv,
                 oferta: smoothedArrays.oferta,
                 venda: smoothedArrays.venda,
                 vgl: smoothedArrays.vgl,
-                vgv: smoothedArrays.vgv,
+                vgv_vendas: smoothedArrays.vgv_vendas,
+                vgv_ofertas: smoothedArrays.vgv_ofertas,
                 lancamentos: smoothedArrays.lancamentos,
                 
-                // Dados originais (manter para debug/comparação)
+                // Séries originais (para debug/correlação bruta)
                 ivv_original: monthlyArrays.ivv,
                 oferta_original: monthlyArrays.oferta,
                 venda_original: monthlyArrays.venda,
                 vgl_original: monthlyArrays.vgl,
-                vgv_original: monthlyArrays.vgv,
+                vgv_vendas_original: monthlyArrays.vgv_vendas,
+                vgv_ofertas_original: monthlyArrays.vgv_ofertas,
                 lancamentos_original: monthlyArrays.lancamentos
             };
         }
@@ -3401,19 +3422,13 @@ class DashboardGenerator:
 
 
         function renderCorrelationNarrative(containerId, variableKey, variableLabel, economicData, secondaryVars) {
-            console.log('🎯 renderCorrelationNarrative INICIADA');
-            console.log('📊 Parâmetros recebidos:', { containerId, variableKey, variableLabel });
+            console.log('🎯 renderCorrelationNarrative:', variableKey);
             
             const el = document.getElementById(containerId);
             if (!el) {
-                console.log('❌ Elemento não encontrado:', containerId);
+                console.error('❌ Elemento não encontrado:', containerId);
                 return;
             }
-            
-            console.log('✅ Elemento encontrado:', containerId);
-            console.log('renderCorrelationNarrative chamada:', { containerId, variableKey, variableLabel });
-            console.log('economicData:', economicData);
-            console.log('secondaryVars:', secondaryVars);
 
             const econVars = [
                 { key: 'selic', label: 'SELIC' },
@@ -3423,13 +3438,22 @@ class DashboardGenerator:
             ];
 
             const { periods: pB, [variableKey]: seriesB } = secondaryVars;
-            console.log('Dados da variável selecionada:', { variableKey, seriesB, periods: pB });
             
-            if (!seriesB) {
+            if (!seriesB || !Array.isArray(seriesB)) {
+                console.error('❌ Série inválida para:', variableKey);
                 el.innerHTML = `<em>Dados indisponíveis para ${variableLabel}.</em>`;
-                console.log('Série B indisponível para:', variableKey);
                 return;
             }
+            
+            // Verificar se há dados válidos
+            const validValues = seriesB.filter(v => v !== null && v !== undefined && !isNaN(v) && v !== 0);
+            if (validValues.length === 0) {
+                console.warn('⚠️ Nenhum valor válido para:', variableKey);
+                el.innerHTML = `<em>Nenhum dado válido encontrado para ${variableLabel}.</em>`;
+                return;
+            }
+            
+            console.log('✅ Processando correlação para:', variableKey, 'com', validValues.length, 'valores válidos');
 
             const lines = [];
 
@@ -3491,7 +3515,8 @@ class DashboardGenerator:
                 'oferta': 'OFERTA - Base 100 (MM 3m)',
                 'venda': 'VENDA - Base 100 (MM 3m)',
                 'vgl': 'VGL - Base 100 (MM 3m)',
-                'vgv': 'VGV - Base 100 (MM 3m)',
+                'vgv_vendas': 'VGV Venda - Base 100 (MM 3m)',
+                'vgv_ofertas': 'VGV Oferta - Base 100 (MM 3m)',
                 'lancamentos': 'Lançamentos - Base 100 (MM 3m)'
             };
             
@@ -3707,7 +3732,7 @@ class DashboardGenerator:
                                 const corrEl = document.getElementById('correlationAnalysis');
                                 if (corrEl && typeof renderCorrelationNarrative === 'function') {
                                     if (meta.hidden) {
-                                        corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
+                                        corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
                                     } else {
                                         renderCorrelationNarrative('correlationAnalysis', variableKey, variableLabel, economicData, secondaryVars);
                                     }
@@ -3773,9 +3798,12 @@ class DashboardGenerator:
                 oferta: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.oferta),
                 venda: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.venda),
                 vgl: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.vgl),
-                vgv: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.vgv),
+                vgv_vendas: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.vgv_vendas),
+                vgv_ofertas: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.vgv_ofertas),
                 lancamentos: alignSecondaryData(primaryData.periods, secondaryData.periods, secondaryData.lancamentos)
             };
+            
+            console.log('🔄 Dados alinhados com sucesso');
             
             console.log('Dados secundários alinhados:', alignedSecondaryData);
             
@@ -3787,7 +3815,8 @@ class DashboardGenerator:
                 oferta: alignedSecondaryData.oferta,
                 venda: alignedSecondaryData.venda,
                 vgl: alignedSecondaryData.vgl,
-                vgv: alignedSecondaryData.vgv,
+                vgv_vendas: alignedSecondaryData.vgv_vendas,
+                vgv_ofertas: alignedSecondaryData.vgv_ofertas,
                 lancamentos: alignedSecondaryData.lancamentos
             };
             
@@ -3889,11 +3918,22 @@ class DashboardGenerator:
                     order: 2,
                     hidden: true
                 },
-                vgv: {
-                    label: 'VGV - Base 100 (MM 3m)',
-                    data: alignedSecondaryData.vgv,
+                vgv_vendas: {
+                    label: 'VGV Venda - Base 100 (MM 3m)',
+                    data: alignedSecondaryData.vgv_vendas,
                     backgroundColor: 'rgba(52, 152, 219, 0.3)',
                     borderColor: 'rgba(52, 152, 219, 0.6)',
+                    borderWidth: 1,
+                    type: 'bar',
+                    yAxisID: 'y2',
+                    order: 2,
+                    hidden: true
+                },
+                vgv_ofertas: {
+                    label: 'VGV Oferta - Base 100 (MM 3m)',
+                    data: alignedSecondaryData.vgv_ofertas,
+                    backgroundColor: 'rgba(241, 196, 15, 0.3)',
+                    borderColor: 'rgba(241, 196, 15, 0.6)',
                     borderWidth: 1,
                     type: 'bar',
                     yAxisID: 'y2',
@@ -3965,69 +4005,77 @@ class DashboardGenerator:
                                 }
                                 chart.update();
                                 
+                                // ================== CORRELAÇÃO: MAPEAMENTO CORRETO ==================
                                 const corrEl = document.getElementById('correlationAnalysis');
                                 if (!corrEl || typeof renderCorrelationNarrative !== 'function') return;
 
-                                // CORREÇÃO: Extrair nome da variável de forma mais robusta
-                                const fullLabel = legendItem.text || dataset.label || "";
+                                const fullLabel = (legendItem.text || dataset.label || '').toUpperCase();
                                 console.log('🏷️ Label completo:', fullLabel);
-                                
-                                // Extrair a primeira palavra (nome da variável) antes de qualquer separador
-                                let cleanLabel = fullLabel.split(' ')[0].trim().toUpperCase();
-                                console.log('🏷️ Label limpo:', cleanLabel);
 
-                                // Mapeamento das variáveis de mercado
-                                const keyMap = {
-                                    "IVV": "ivv",
-                                    "OFERTA": "oferta", 
-                                    "VENDA": "venda",
-                                    "VGL": "vgl",
-                                    "VGV": "vgv",
-                                    "LANÇAMENTOS": "lancamentos"
-                                };
+                                // Mapeamento ROBUSTO (ordem importa)
+                                let variableKey = null;
+                                let variableLabel = null;
 
-                                const variableKey = keyMap[cleanLabel] || null;
-                                console.log('🔑 Variable key mapeada:', variableKey);
+                                if (fullLabel.startsWith('VGV VENDA')) {
+                                    variableKey = 'vgv_vendas';
+                                    variableLabel = 'VGV Venda';
+                                }
+                                else if (fullLabel.startsWith('VGV OFERTA')) {
+                                    variableKey = 'vgv_ofertas';
+                                    variableLabel = 'VGV Oferta';
+                                }
+                                else if (fullLabel.startsWith('VGL')) {
+                                    variableKey = 'vgl';
+                                    variableLabel = 'VGL';
+                                }
+                                else if (fullLabel.startsWith('IVV')) {
+                                    variableKey = 'ivv';
+                                    variableLabel = 'IVV';
+                                }
+                                else if (fullLabel.startsWith('OFERTA')) {
+                                    variableKey = 'oferta';
+                                    variableLabel = 'Oferta';
+                                }
+                                else if (fullLabel.startsWith('VENDA')) {
+                                    variableKey = 'venda';
+                                    variableLabel = 'Venda';
+                                }
+                                else if (fullLabel.startsWith('LANÇAMENTOS')) {
+                                    variableKey = 'lancamentos';
+                                    variableLabel = 'Lançamentos';
+                                }
 
-                                // Se não for uma variável de mercado, reseta o texto
+                                console.log('🔑 VariableKey:', variableKey);
+
+                                // Se não for variável válida
                                 if (!variableKey) {
-                                    console.log('❌ Não é variável de mercado:', cleanLabel);
-                                    corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
+                                    corrEl.innerHTML = `<em>Selecione uma variável de mercado válida no gráfico para ver as correlações.</em>`;
                                     return;
                                 }
 
-                                // Verificar se a variável está visível (para barras, hidden=false significa visível)
-                                const isVisible = (dataset.type === 'bar') ? (meta.hidden === false) : (meta.hidden !== true);
-                                console.log('👁️ Variável visível?', isVisible, 'meta.hidden:', meta.hidden);
-                                
+                                // Verificar visibilidade
+                                const isVisible = (dataset.type === 'bar')
+                                    ? (meta.hidden === false)
+                                    : (meta.hidden !== true);
+
                                 if (!isVisible) {
-                                    console.log('👁️ Variável oculta, resetando correlações');
-                                    corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
+                                    corrEl.innerHTML = `<em>Selecione uma variável de mercado válida no gráfico para ver as correlações.</em>`;
                                     return;
                                 }
 
-                                // Atualiza narrativa dinâmica
-                                console.log('🎯 INICIANDO CÁLCULO DE CORRELAÇÃO');
-                                console.log('📊 Parâmetros:', { variableKey, cleanLabel });
-                                console.log('🌐 Dados globais disponíveis:', {
-                                    hasEconomicData: !!window.economicData,
-                                    hasSecondaryVars: !!window.secondaryVars
-                                });
-                                
-                                if (window.economicData && window.secondaryVars) {
-                                    console.log('✅ Dados globais OK');
-                                    console.log('📈 EconomicData keys:', Object.keys(window.economicData));
-                                    console.log('📊 SecondaryVars keys:', Object.keys(window.secondaryVars));
-                                    console.log('🎯 Variable específica [' + variableKey + ']:', window.secondaryVars[variableKey]?.slice(0, 3));
-                                } else {
-                                    console.log('❌ Dados globais FALTANDO');
+                                // Garantir dados globais
+                                if (!window.economicData || !window.secondaryVars) {
+                                    corrEl.innerHTML = `<em>Dados insuficientes para cálculo de correlação.</em>`;
+                                    return;
                                 }
-                                
-                                console.log('🚀 Chamando renderCorrelationNarrative...');
+
+                                console.log('🚀 Calculando correlação para:', variableKey);
+                                console.log('📊 Série selecionada:', window.secondaryVars[variableKey]?.slice(0, 5));
+
                                 renderCorrelationNarrative(
                                     'correlationAnalysis',
                                     variableKey,
-                                    cleanLabel,
+                                    variableLabel,
                                     window.economicData,
                                     window.secondaryVars
                                 );
@@ -4284,7 +4332,7 @@ class DashboardGenerator:
                   
                   <!-- Nota metodológica sobre Base 100 e Média Móvel -->
                   <div style="margin-top:10px; padding:10px; background-color:#e8f4fd; border-left:3px solid #2196F3; border-radius:4px; font-size:12px; color:#666;">
-                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV, Lançamentos) são apresentadas em <strong>Base 100</strong> (normalização dos últimos 12 meses = 100) 
+                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas , Lançamentos) são apresentadas em <strong>Base 100</strong> (normalização dos últimos 12 meses = 100) 
                     com <strong>Média Móvel de 3 meses</strong> para suavizar variações sazonais e facilitar a comparação com os indicadores econômicos. 
                     Esta metodologia permite visualizar tendências de longo prazo e correlações mais claras entre as variáveis.
                   </div>
@@ -4294,7 +4342,7 @@ class DashboardGenerator:
                        style="margin-top:15px; padding:12px; background-color:#f8f9fa;
                               border-left:3px solid #A49EE2; border-radius:4px;
                               font-size:13px; color:#555; line-height:1.6;">
-                    <em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>
+                    <em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>
                   </div>
                 </div>
               `;
@@ -5420,6 +5468,76 @@ class DashboardGenerator:
                 yearly[key] = values.reduce(function(sum, val) { return sum + val; }, 0);
             });
             
+            return { monthly: monthly, quarterly: quarterly, yearly: yearly };
+        }
+
+        // Versão para indicadores de ESTOQUE (não-fluxo): agrega por MÉDIA no trimestre/ano.
+        // Usado para "VGV sobre Ofertas" (estoque potencial), para evitar dupla contagem ao somar meses.
+        function calculateVGLVGVPeriodAverages(data, ofertaTypes) {
+            const monthly = {};
+
+            data.forEach(function(row) {
+                if (ofertaTypes.includes(row.OFERTA_VENDA)) {
+                    const period = row.ANO_MES;
+                    if (!monthly[period]) monthly[period] = 0;
+                    monthly[period] += row.AREA_QUANTIDADE_VALOR || 0;
+                }
+            });
+
+            if (Object.keys(monthly).length === 0) {
+                return { monthly: {}, quarterly: {}, yearly: {} };
+            }
+
+            const monthlyEntries = Object.entries(monthly).map(function(item) {
+                const period = item[0];
+                const value = item[1];
+                return {
+                    period: parseInt(period),
+                    value: value,
+                    year: parseInt(String(period).substring(0, 4)),
+                    month: parseInt(String(period).substring(4, 6))
+                };
+            });
+
+            const getQuarter = function(month) {
+                if (month >= 1 && month <= 3) return 1;
+                if (month >= 4 && month <= 6) return 2;
+                if (month >= 7 && month <= 9) return 3;
+                return 4;
+            };
+
+            const quarterlyGroups = {};
+            monthlyEntries.forEach(function(entry) {
+                const quarter = getQuarter(entry.month);
+                const key = entry.year + '_' + quarter + 'T';
+
+                if (!quarterlyGroups[key]) quarterlyGroups[key] = [];
+                quarterlyGroups[key].push(entry.value);
+            });
+
+            const quarterly = {};
+            Object.entries(quarterlyGroups).forEach(function(item) {
+                const key = item[0];
+                const values = item[1];
+                const sum = values.reduce(function(acc, val) { return acc + val; }, 0);
+                quarterly[key] = values.length ? (sum / values.length) : 0;
+            });
+
+            const yearlyGroups = {};
+            monthlyEntries.forEach(function(entry) {
+                const key = entry.year;
+                if (!yearlyGroups[key]) yearlyGroups[key] = [];
+                yearlyGroups[key].push(entry.value);
+            });
+
+            const yearly = {};
+            Object.entries(yearlyGroups).forEach(function(item) {
+                const key = item[0];
+                const values = item[1];
+                const sum = values.reduce(function(acc, val) { return acc + val; }, 0);
+                yearly[key] = values.length ? (sum / values.length) : 0;
+            });
+
             return { monthly: monthly, quarterly: quarterly, yearly: yearly };
         }
 
@@ -6614,7 +6732,8 @@ class DashboardGenerator:
             const ofertaValorPonderadoPeriods = calculateValorPonderadoPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS']);
             const vendaValorPonderadoPeriods = calculateValorPonderadoPeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS']);
             const vglPeriods = calculateVGLVGVPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']);
-            const vgvPeriods = calculateVGLVGVPeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS']);
+            const vgvOfertasPeriods = calculateVGLVGVPeriodAverages(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS']);
+            const vgvVendasPeriods = calculateVGLVGVPeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS']);
             const distratosPeriods = calculatePeriodAggregations(data, ['DISTRATO'], false);
             
             let tablesHtml = '';
@@ -6650,26 +6769,31 @@ class DashboardGenerator:
             tablesHtml += createYearlyTable('Venda Anual (m²)', vendaAreaPeriods.yearly);
             
             // Tabelas 19-21: Ofertas Valor Médio Ponderado (R$/m² - 2 casas decimais)
-            tablesHtml += createTableMoney('Oferta Valor Médio Ponderado Mensal (R$/m²)', ofertaValorPonderadoPeriods.monthly, true);
-            tablesHtml += createQuarterlyTableMoney('Oferta Valor Médio Ponderado Trimestral (R$/m²)', ofertaValorPonderadoPeriods.quarterly, true);
-            tablesHtml += createYearlyTableMoney('Oferta Valor Médio Ponderado Anual (R$/m²)', ofertaValorPonderadoPeriods.yearly, true);
+            tablesHtml += createTableMoney('Preço de Oferta Mensal (R$/m²)', ofertaValorPonderadoPeriods.monthly, true);
+            tablesHtml += createQuarterlyTableMoney('Preço de Oferta Trimestral (R$/m²)', ofertaValorPonderadoPeriods.quarterly, true);
+            tablesHtml += createYearlyTableMoney('Preço de Oferta Anual (R$/m²)', ofertaValorPonderadoPeriods.yearly, true);
             
             // Tabelas 22-24: Vendas Valor Médio Ponderado (R$/m² - 2 casas decimais)
-            tablesHtml += createTableMoney('Venda Valor Médio Ponderado Mensal (R$/m²)', vendaValorPonderadoPeriods.monthly, true);
-            tablesHtml += createQuarterlyTableMoney('Venda Valor Médio Ponderado Trimestral (R$/m²)', vendaValorPonderadoPeriods.quarterly, true);
-            tablesHtml += createYearlyTableMoney('Venda Valor Médio Ponderado Anual (R$/m²)', vendaValorPonderadoPeriods.yearly, true);
+            tablesHtml += createTableMoney('Preço de Venda Mensal (R$/m²)', vendaValorPonderadoPeriods.monthly, true);
+            tablesHtml += createQuarterlyTableMoney('Preço de Venda Trimestral (R$/m²)', vendaValorPonderadoPeriods.quarterly, true);
+            tablesHtml += createYearlyTableMoney('Preço de Venda Anual (R$/m²)', vendaValorPonderadoPeriods.yearly, true);
             
             // Tabelas 25-27: VGL (R$ Milhões - 2 casas decimais)
             tablesHtml += createTableMoney('VGL Mensal (R$ Milhões)', vglPeriods.monthly, false);
             tablesHtml += createQuarterlyTableMoney('VGL Trimestral (R$ Milhões)', vglPeriods.quarterly, false);
             tablesHtml += createYearlyTableMoney('VGL Anual (R$ Milhões)', vglPeriods.yearly, false);
             
-            // Tabelas 28-30: VGV (R$ Milhões - 2 casas decimais)
-            tablesHtml += createTableMoney('VGV Mensal (R$ Milhões)', vgvPeriods.monthly, false);
-            tablesHtml += createQuarterlyTableMoney('VGV Trimestral (R$ Milhões)', vgvPeriods.quarterly, false);
-            tablesHtml += createYearlyTableMoney('VGV Anual (R$ Milhões)', vgvPeriods.yearly, false);
+            // Tabelas 28-30: VGV sobre Ofertas (R$ Milhões - 2 casas decimais)
+            tablesHtml += createTableMoney('VGV sobre Ofertas Mensal (R$ Milhões)', vgvOfertasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGV sobre Ofertas Trimestral (R$ Milhões)', vgvOfertasPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGV sobre Ofertas Anual (R$ Milhões)', vgvOfertasPeriods.yearly, false);
             
-            // Tabelas 31-33: Distratos (Unidades - sem casas decimais)
+            // Tabelas 31-33: VGV sobre Vendas (R$ Milhões - 2 casas decimais)
+            tablesHtml += createTableMoney('VGV sobre Vendas Mensal (R$ Milhões)', vgvVendasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGV sobre Vendas Trimestral (R$ Milhões)', vgvVendasPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGV sobre Vendas Anual (R$ Milhões)', vgvVendasPeriods.yearly, false);
+
+// Tabelas 31-33: Distratos (Unidades - sem casas decimais)
             tablesHtml += createTable('Distratos Mensais (Unidades)', distratosPeriods.monthly, false);
             tablesHtml += createQuarterlyTable('Distratos Trimestrais (Unidades)', distratosPeriods.quarterly);
             tablesHtml += createYearlyTable('Distratos Anuais (Unidades)', distratosPeriods.yearly);
@@ -7119,30 +7243,41 @@ function applyTrendColorsQuarterly() {
                 
                 if (title.includes('ivv')) {
                     cat = 'ivv';
-                } else if (title.includes('oferta') && title.includes('valor') && title.includes('ponderado')) {
-                    // Ofertas valor ponderado (prioridade sobre m²)
+                } else if (
+                    // Preço de oferta / Valor ponderado de oferta
+                    (title.includes('oferta') && title.includes('preço')) ||
+                    (title.includes('oferta') && title.includes('valor') && title.includes('ponderado'))
+                ) {
                     cat = 'valor_ponderado_oferta';
-                } else if (title.includes('venda') && title.includes('valor') && title.includes('ponderado')) {
-                    // Vendas valor ponderado (prioridade sobre m²)
+                } else if (
+                    // Preço de venda / Valor ponderado de venda
+                    (title.includes('venda') && title.includes('preço')) ||
+                    (title.includes('venda') && title.includes('valor') && title.includes('ponderado'))
+                ) {
                     cat = 'valor_ponderado_venda';
-                } else if (title.includes('oferta') && title.includes('m²') && !title.includes('valor')) {
+                } else if (title.includes('oferta') && title.includes('m²') && !title.includes('valor') && !title.includes('preço')) {
                     // Ofertas em m² (excluindo valor ponderado)
                     cat = 'oferta_m2';
-                } else if (title.includes('venda') && title.includes('m²') && !title.includes('valor')) {
+                } else if (title.includes('venda') && title.includes('m²') && !title.includes('valor') && !title.includes('preço')) {
                     // Vendas em m² (excluindo valor ponderado)
                     cat = 'venda_m2';
-                } else if (title.includes('oferta') && !title.includes('m²') && !title.includes('valor')) {
+                } else if (title.includes('oferta') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço')) {
                     // Ofertas em unidades (sem m² e sem valor)
                     cat = 'oferta';
-                } else if (title.includes('venda') && !title.includes('m²') && !title.includes('valor')) {
+                } else if (title.includes('venda') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço')) {
                     // Vendas em unidades (sem m² e sem valor)
                     cat = 'venda';
                 } else if (title.includes('lanç') || title.includes('lanc')) {
                     cat = 'lancamentos';
                 } else if (title.includes('vgl')) {
                     cat = 'vgl';
+                } else if (title.includes('vgv') && title.includes('oferta')) {
+                    cat = 'vgv_ofertas';
+                } else if (title.includes('vgv') && title.includes('venda')) {
+                    cat = 'vgv_vendas';
                 } else if (title.includes('vgv')) {
-                    cat = 'vgv';
+                    // fallback para retrocompatibilidade
+                    cat = 'vgv_vendas';
                 } else if (title.includes('distrato')) {
                     cat = 'distratos';
                 }
@@ -7252,30 +7387,37 @@ function applyTrendColorsQuarterly() {
                             shouldShow = title.includes('ivv');
                             break;
                         case 'oferta':
-                            shouldShow = title.includes('oferta') && !title.includes('m²') && !title.includes('valor');
+                            shouldShow = title.includes('oferta') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço');
                             break;
                         case 'venda':
-                            shouldShow = title.includes('venda') && !title.includes('m²') && !title.includes('valor');
+                            shouldShow = title.includes('venda') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço');
                             break;
                         case 'lancamentos':
                             shouldShow = title.includes('lanç') || title.includes('lanc');
                             break;
                         case 'oferta_m2':
-                            shouldShow = title.includes('oferta') && title.includes('m²') && !title.includes('valor');
+                            shouldShow = title.includes('oferta') && title.includes('m²') && !title.includes('valor') && !title.includes('preço');
                             break;
                         case 'venda_m2':
-                            shouldShow = title.includes('venda') && title.includes('m²') && !title.includes('valor');
+                            shouldShow = title.includes('venda') && title.includes('m²') && !title.includes('valor') && !title.includes('preço');
                             break;
                         case 'valor_ponderado_oferta':
-                            shouldShow = title.includes('oferta') && title.includes('valor');
+                            shouldShow = (title.includes('oferta') && title.includes('preço')) || (title.includes('oferta') && title.includes('valor'));
                             break;
                         case 'valor_ponderado_venda':
-                            shouldShow = title.includes('venda') && title.includes('valor');
+                            shouldShow = (title.includes('venda') && title.includes('preço')) || (title.includes('venda') && title.includes('valor'));
                             break;
                         case 'vgl':
                             shouldShow = title.includes('vgl');
                             break;
+                        case 'vgv_ofertas':
+                            shouldShow = title.includes('vgv') && title.includes('oferta');
+                            break;
+                        case 'vgv_vendas':
+                            shouldShow = title.includes('vgv') && title.includes('venda');
+                            break;
                         case 'vgv':
+                            // retrocompatibilidade
                             shouldShow = title.includes('vgv');
                             break;
                         case 'distratos':
@@ -7732,10 +7874,10 @@ function applyTrendColorsQuarterly() {
                         title = 'Vendas por região';
                         break;
                     case 'valor_ponderado_oferta':
-                        title = 'Oferta Valor Ponderado por região (R$/m²)';
+                        title = 'Preço de oferta por região (R$/m²)';
                         break;
                     case 'valor_ponderado_venda':
-                        title = 'Venda Valor Ponderado por região (R$/m²)';
+                        title = 'Preço de venda por região (R$/m²)';
                         break;
                     case 'oferta_m2':
                         title = 'Oferta total por região (em m²)';

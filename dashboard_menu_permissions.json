@@ -1,5 +1,6 @@
 {
-  "generated_at": "2025-12-24T17:15:29.628343",
+  "generated_at": "2025-12-25T10:51:44.442250",
+  "dashboard_version": "gerador_dashboard.py",
   "menu_permissions": {
     "admin": {
       "residencial": [
@@ -12,7 +13,8 @@
         "valor_ponderado_oferta",
         "valor_ponderado_venda",
         "vgl",
-        "vgv",
+        "vgv_vendas",
+        "vgv_ofertas",
         "distratos"
       ],
       "comercial": [
@@ -25,19 +27,16 @@
         "valor_ponderado_oferta",
         "valor_ponderado_venda",
         "vgl",
-        "vgv",
+        "vgv_vendas",
+        "vgv_ofertas",
         "distratos"
       ],
       "crosstabs": [
         "ivv_por_regiao",
-        "ofertas_por_regiao",
-        "vendas_por_regiao",
-        "oferta_valor_pond_regiao",
-        "venda_valor_pond_regiao",
-        "oferta_m2_regiao",
-        "venda_m2_regiao",
-        "gastos_pos_entrega_regiao",
-        "gastos_categoria_regiao"
+        "oferta_quantidade",
+        "venda_quantidade",
+        "gastos_pos_entrega",
+        "gastos_por_categoria"
       ],
       "insights": [
         "indicadores_economicos",
@@ -55,7 +54,8 @@
         "valor_ponderado_oferta",
         "valor_ponderado_venda",
         "vgl",
-        "vgv",
+        "vgv_vendas",
+        "vgv_ofertas",
         "distratos"
       ],
       "comercial": [
@@ -68,19 +68,16 @@
         "valor_ponderado_oferta",
         "valor_ponderado_venda",
         "vgl",
-        "vgv",
+        "vgv_vendas",
+        "vgv_ofertas",
         "distratos"
       ],
       "crosstabs": [
         "ivv_por_regiao",
-        "ofertas_por_regiao",
-        "vendas_por_regiao",
-        "oferta_valor_pond_regiao",
-        "venda_valor_pond_regiao",
-        "oferta_m2_regiao",
-        "venda_m2_regiao",
-        "gastos_pos_entrega_regiao",
-        "gastos_categoria_regiao"
+        "oferta_quantidade",
+        "venda_quantidade",
+        "gastos_pos_entrega",
+        "gastos_por_categoria"
       ],
       "insights": [
         "indicadores_economicos",
@@ -106,12 +103,10 @@
       ],
       "crosstabs": [
         "ivv_por_regiao",
-        "ofertas_por_regiao",
-        "vendas_por_regiao",
-        "oferta_m2_regiao",
-        "venda_m2_regiao",
-        "gastos_pos_entrega_regiao",
-        "gastos_categoria_regiao"
+        "oferta_quantidade",
+        "venda_quantidade",
+        "gastos_pos_entrega",
+        "gastos_por_categoria"
       ],
       "insights": [
         "indicadores_economicos",
@@ -131,9 +126,15 @@
       ],
       "crosstabs": [
         "ivv_por_regiao",
-        "ofertas_por_regiao",
-        "vendas_por_regiao"
+        "oferta_quantidade",
+        "venda_quantidade"
       ]
     }
+  },
+  "validation": {
+    "valid": true,
+    "warnings": [],
+    "total_categories": 35,
+    "admin_permissions": 31
   }
 }

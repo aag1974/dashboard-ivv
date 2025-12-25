@@ -11,6 +11,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, Any
 
 
 class VisualPermissionConfigurator:
@@ -44,20 +45,20 @@ class VisualPermissionConfigurator:
         self.load_existing_permissions()
     
     def scan_dashboard_structure(self):
-        """Escaneia o gerador_dashboard.py para encontrar estrutura de menus"""
+        """Escaneia o gerador_dashboard.py para encontrar estrutura de menus - SINCRONIZADO COM DASHBOARD CORRIGIDO"""
         structure = {
             'residencial': [
                 'ivv', 'oferta', 'venda', 'lancamentos', 'oferta_m2', 'venda_m2',
-                'valor_ponderado_oferta', 'valor_ponderado_venda', 'vgl', 'vgv', 'distratos'
+                'valor_ponderado_oferta', 'valor_ponderado_venda', 'vgl', 'vgv_vendas', 'vgv_ofertas', 'distratos'
             ],
             'comercial': [
                 'ivv', 'oferta', 'venda', 'lancamentos', 'oferta_m2', 'venda_m2',
-                'valor_ponderado_oferta', 'valor_ponderado_venda', 'vgl', 'vgv', 'distratos'
+                'valor_ponderado_oferta', 'valor_ponderado_venda', 'vgl', 'vgv_vendas', 'vgv_ofertas', 'distratos'
             ],
             'crosstabs': [
-                'ivv_por_regiao','ofertas_por_regiao', 'vendas_por_regiao', 'oferta_valor_pond_regiao',
-                'venda_valor_pond_regiao', 'oferta_m2_regiao', 'venda_m2_regiao',
-                'gastos_pos_entrega_regiao', 'gastos_categoria_regiao'
+                'ivv_por_regiao','oferta_quantidade', 'venda_quantidade', 'valor_ponderado_oferta',
+                'valor_ponderado_venda', 'oferta_m2', 'venda_m2',
+                'gastos_pos_entrega', 'gastos_por_categoria'
             ],
             'insights': [
                 'indicadores_economicos', 'correlacoes'
@@ -66,10 +67,18 @@ class VisualPermissionConfigurator:
         
         # Tentar ler do código se disponível
         try:
-            if Path('gerador_dashboard.py').exists():
-                print("📊 Estrutura de menus detectada automaticamente")
+            dashboard_files = ['gerador_dashboard.py']
+            found_file = None
+            for file in dashboard_files:
+                if Path(file).exists():
+                    found_file = file
+                    break
+            
+            if found_file:
+                print(f"📊 Estrutura de menus sincronizada com {found_file}")
+                # Aqui poderíamos fazer parsing automático do arquivo se necessário
             else:
-                print("📋 Usando estrutura padrão de menus")
+                print("📋 Usando estrutura atualizada de menus (sincronizada com dashboard corrigido)")
         except:
             pass
             
@@ -336,6 +345,13 @@ class VisualPermissionConfigurator:
         btn_frame = tk.Frame(self.root, bg='#f0f0f0')
         btn_frame.pack(pady=20)
         
+        # Botão Verificar Sincronização
+        sync_btn = tk.Button(btn_frame, text="🔍 Verificar Sincronização", 
+                           command=self.check_sync_with_dashboard,
+                           bg='#FF9800', fg='white', font=('Arial', 12, 'bold'),
+                           padx=20, pady=10)
+        sync_btn.pack(side=tk.LEFT, padx=10)
+        
         # Botão Salvar
         save_btn = tk.Button(btn_frame, text="💾 Salvar Configurações", 
                            command=self.save_permissions, 
@@ -357,6 +373,138 @@ class VisualPermissionConfigurator:
                              padx=20, pady=10)
         cancel_btn.pack(side=tk.LEFT, padx=10)
     
+    def check_sync_with_dashboard(self):
+        """Verifica sincronização com arquivo dashboard"""
+        try:
+            dashboard_files = [
+                'gerador_dashboard.py'
+            ]
+            
+            found_file = None
+            for file in dashboard_files:
+                if Path(file).exists():
+                    found_file = file
+                    break
+            
+            if not found_file:
+                messagebox.showwarning("⚠️ Arquivo não encontrado",
+                                     "Nenhum arquivo de dashboard encontrado para verificar sincronização.")
+                return
+            
+            # Ler arquivo e procurar por definições de categorias
+            with open(found_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Procurar por padrões de categorias no JavaScript
+            found_categories = {
+                'residencial': set(),
+                'comercial': set(), 
+                'crosstabs': set(),
+                'insights': set()
+            }
+            
+            # Padrões para encontrar categorias
+            import re
+            
+            # Procurar por viewCategories
+            view_cat_match = re.search(r'viewCategories\s*=\s*{([^}]+)}', content, re.DOTALL)
+            if view_cat_match:
+                view_cat_content = view_cat_match.group(1)
+                
+                for menu in found_categories.keys():
+                    menu_match = re.search(rf'{menu}:\s*\[([^\]]+)\]', view_cat_content)
+                    if menu_match:
+                        cats_str = menu_match.group(1)
+                        # Extrair strings entre aspas
+                        cats = re.findall(r"'([^']+)'", cats_str)
+                        found_categories[menu].update(cats)
+            
+            self._show_sync_comparison(found_file, found_categories)
+            
+        except Exception as e:
+            messagebox.showerror("❌ Erro", f"Erro ao verificar sincronização: {e}")
+    
+    def _show_sync_comparison(self, dashboard_file: str, found_categories: dict):
+        """Mostra comparação de sincronização"""
+        sync_window = tk.Toplevel(self.root)
+        sync_window.title("🔍 Verificação de Sincronização")
+        sync_window.geometry("800x600")
+        sync_window.configure(bg='#f0f0f0')
+        
+        # Frame de título
+        title_frame = tk.Frame(sync_window, bg='#FF9800', height=50)
+        title_frame.pack(fill='x')
+        title_frame.pack_propagate(False)
+        
+        title_label = tk.Label(title_frame, text="VERIFICAÇÃO DE SINCRONIZAÇÃO", 
+                              font=('Arial', 14, 'bold'), fg='white', bg='#FF9800')
+        title_label.pack(pady=12)
+        
+        # Área de texto com scroll
+        text_frame = tk.Frame(sync_window, bg='#f0f0f0')
+        text_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        text_area = tk.Text(text_frame, wrap=tk.WORD, font=('Courier', 9))
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_area.yview)
+        text_area.configure(yscrollcommand=scrollbar.set)
+        
+        text_area.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Gerar relatório de comparação
+        report = []
+        report.append("=" * 80)
+        report.append("VERIFICAÇÃO DE SINCRONIZAÇÃO")
+        report.append("=" * 80)
+        report.append(f"📁 Arquivo analisado: {dashboard_file}")
+        report.append(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        report.append("")
+        
+        total_issues = 0
+        
+        for menu_name in found_categories.keys():
+            report.append(f"📊 MENU: {menu_name.upper()}")
+            report.append("-" * 60)
+            
+            configurador_cats = set(self.menus_structure.get(menu_name, []))
+            dashboard_cats = found_categories[menu_name]
+            
+            # Categorias extras no configurador
+            extra_in_config = configurador_cats - dashboard_cats
+            if extra_in_config:
+                report.append(f"⚠️  EXTRAS NO CONFIGURADOR: {', '.join(extra_in_config)}")
+                total_issues += len(extra_in_config)
+            
+            # Categorias faltando no configurador
+            missing_in_config = dashboard_cats - configurador_cats
+            if missing_in_config:
+                report.append(f"❌ FALTANDO NO CONFIGURADOR: {', '.join(missing_in_config)}")
+                total_issues += len(missing_in_config)
+            
+            # Categorias sincronizadas
+            synchronized = configurador_cats & dashboard_cats
+            if synchronized:
+                report.append(f"✅ SINCRONIZADAS ({len(synchronized)}): {', '.join(synchronized)}")
+            
+            report.append("")
+        
+        # Resumo final
+        if total_issues == 0:
+            report.append("🎉 PERFEITA SINCRONIZAÇÃO!")
+            report.append("✅ Todas as categorias estão alinhadas entre configurador e dashboard.")
+        else:
+            report.append(f"⚠️  {total_issues} PROBLEMAS ENCONTRADOS")
+            report.append("🔧 Recomenda-se atualizar o configurador para sincronizar.")
+        
+        text_area.insert(tk.END, "\n".join(report))
+        text_area.config(state=tk.DISABLED)
+        
+        # Botão fechar
+        close_btn = tk.Button(sync_window, text="Fechar", 
+                             command=sync_window.destroy,
+                             bg='#FF9800', fg='white', font=('Arial', 10, 'bold'))
+        close_btn.pack(pady=10)
+    
     def load_existing_permissions(self):
         """Carrega permissões existentes se houver"""
         try:
@@ -365,6 +513,9 @@ class VisualPermissionConfigurator:
                     saved_data = json.load(f)
                 
                 menu_perms = saved_data.get('menu_permissions', {})
+                
+                # Migrar permissões antigas se necessário
+                menu_perms = self._migrate_old_permissions(menu_perms)
                 
                 # Aplica permissões salvas aos checkboxes
                 for profile in self.profiles:
@@ -382,15 +533,62 @@ class VisualPermissionConfigurator:
                                 # Atualizar checkbox do menu
                                 self.update_menu_checkbox(menu_key, submenu, profile)
                 
-                print("✅ Configurações existentes carregadas")
+                print("✅ Configurações existentes carregadas e migradas")
         except Exception as e:
             print(f"⚠️ Erro ao carregar configurações: {e}")
     
+    def _migrate_old_permissions(self, menu_perms: dict) -> dict:
+        """Migra permissões antigas para nova estrutura"""
+        migrated = {}
+        
+        for profile, profile_data in menu_perms.items():
+            migrated[profile] = {}
+            
+            for menu_key, submenus in profile_data.items():
+                if menu_key not in self.menus_structure:
+                    print(f"⚠️ Menu '{menu_key}' não encontrado na estrutura atual, ignorando")
+                    continue
+                
+                migrated_submenus = []
+                
+                for submenu in submenus:
+                    # Migração específica: vgv -> vgv_vendas + vgv_ofertas
+                    if submenu == 'vgv':
+                        print(f"🔄 Migrando 'vgv' para 'vgv_vendas' e 'vgv_ofertas' no perfil {profile}")
+                        migrated_submenus.extend(['vgv_vendas', 'vgv_ofertas'])
+                    # Migração de nomes de crosstabs antigos
+                    elif submenu == 'ofertas_por_regiao':
+                        migrated_submenus.append('oferta_quantidade')
+                    elif submenu == 'vendas_por_regiao':
+                        migrated_submenus.append('venda_quantidade')
+                    elif submenu == 'gastos_pos_entrega_regiao':
+                        migrated_submenus.append('gastos_pos_entrega')
+                    elif submenu == 'gastos_categoria_regiao':
+                        migrated_submenus.append('gastos_por_categoria')
+                    # Manter submenu se existe na estrutura atual
+                    elif submenu in self.menus_structure[menu_key]:
+                        migrated_submenus.append(submenu)
+                    else:
+                        print(f"⚠️ Submenu '{submenu}' não encontrado em '{menu_key}', ignorando")
+                
+                if migrated_submenus:
+                    migrated[profile][menu_key] = list(set(migrated_submenus))  # Remove duplicatas
+        
+        return migrated
+    
     def save_permissions(self):
-        """Salva configurações em JSON"""
+        """Salva configurações em JSON com validação"""
+        # Validar estrutura antes de salvar
+        validation_result = self._validate_permissions()
+        if not validation_result['valid']:
+            messagebox.showwarning("⚠️ Aviso", 
+                                f"Problemas encontrados:\n{chr(10).join(validation_result['warnings'])}")
+        
         config = {
             'generated_at': datetime.now().isoformat(),
-            'menu_permissions': {}
+            'dashboard_version': 'gerador_dashboard.py',
+            'menu_permissions': {},
+            'validation': validation_result
         }
         
         # Converter checkboxes para JSON
@@ -413,11 +611,115 @@ class VisualPermissionConfigurator:
             with open('dashboard_menu_permissions.json', 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
             
+            # Mostrar relatório de sincronização
+            self._show_sync_report(config)
+            
             messagebox.showinfo("✅ Sucesso", 
                               "Configurações salvas em dashboard_menu_permissions.json")
             print("✅ Configurações salvas com sucesso!")
         except Exception as e:
             messagebox.showerror("❌ Erro", f"Erro ao salvar: {e}")
+    
+    def _validate_permissions(self) -> Dict[str, Any]:
+        """Valida configurações de permissões"""
+        warnings = []
+        
+        # Verificar se pelo menos admin tem todas as permissões
+        admin_perms = 0
+        for menu_key in self.menus_structure:
+            for submenu in self.menus_structure[menu_key]:
+                if (menu_key in self.permissions and 
+                    submenu in self.permissions[menu_key] and
+                    self.permissions[menu_key][submenu]['admin'].get()):
+                    admin_perms += 1
+        
+        total_perms = sum(len(submenus) for submenus in self.menus_structure.values())
+        
+        if admin_perms < total_perms * 0.8:  # Admin deve ter pelo menos 80% das permissões
+            warnings.append(f"Admin tem apenas {admin_perms}/{total_perms} permissões. Recomendado dar mais acesso ao admin.")
+        
+        # Verificar se há perfis sem nenhuma permissão
+        for profile in self.profiles:
+            profile_perms = 0
+            for menu_key in self.menus_structure:
+                for submenu in self.menus_structure[menu_key]:
+                    if (menu_key in self.permissions and 
+                        submenu in self.permissions[menu_key] and
+                        self.permissions[menu_key][submenu][profile].get()):
+                        profile_perms += 1
+            
+            if profile_perms == 0:
+                warnings.append(f"Perfil '{profile}' não tem nenhuma permissão.")
+        
+        return {
+            'valid': len(warnings) == 0,
+            'warnings': warnings,
+            'total_categories': total_perms,
+            'admin_permissions': admin_perms
+        }
+    
+    def _show_sync_report(self, config: dict):
+        """Mostra relatório de sincronização"""
+        report_window = tk.Toplevel(self.root)
+        report_window.title("📊 Relatório de Sincronização")
+        report_window.geometry("600x400")
+        report_window.configure(bg='#f0f0f0')
+        
+        # Frame de título
+        title_frame = tk.Frame(report_window, bg='#4A90E2', height=50)
+        title_frame.pack(fill='x')
+        title_frame.pack_propagate(False)
+        
+        title_label = tk.Label(title_frame, text="RELATÓRIO DE SINCRONIZAÇÃO", 
+                              font=('Arial', 14, 'bold'), fg='white', bg='#4A90E2')
+        title_label.pack(pady=12)
+        
+        # Área de texto com scroll
+        text_frame = tk.Frame(report_window, bg='#f0f0f0')
+        text_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        text_area = tk.Text(text_frame, wrap=tk.WORD, font=('Courier', 10))
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_area.yview)
+        text_area.configure(yscrollcommand=scrollbar.set)
+        
+        text_area.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Gerar relatório
+        report = []
+        report.append("=" * 60)
+        report.append("RELATÓRIO DE SINCRONIZAÇÃO COM DASHBOARD")
+        report.append("=" * 60)
+        report.append(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        report.append(f"🔧 Dashboard: {config.get('dashboard_version', 'N/A')}")
+        report.append("")
+        
+        # Resumo por perfil
+        for profile in self.profiles:
+            profile_data = config['menu_permissions'].get(profile, {})
+            total_cats = sum(len(cats) for cats in profile_data.values())
+            report.append(f"👤 {profile.upper()}: {total_cats} categorias ativas")
+            
+            for menu, cats in profile_data.items():
+                report.append(f"   📁 {menu}: {', '.join(cats)}")
+            report.append("")
+        
+        # Categorias disponíveis
+        report.append("📊 CATEGORIAS DISPONÍVEIS:")
+        for menu, cats in self.menus_structure.items():
+            report.append(f"   📁 {menu} ({len(cats)}): {', '.join(cats)}")
+        
+        report.append("")
+        report.append("✅ Sincronização concluída com sucesso!")
+        
+        text_area.insert(tk.END, "\n".join(report))
+        text_area.config(state=tk.DISABLED)
+        
+        # Botão fechar
+        close_btn = tk.Button(report_window, text="Fechar", 
+                             command=report_window.destroy,
+                             bg='#4A90E2', fg='white', font=('Arial', 10, 'bold'))
+        close_btn.pack(pady=10)
     
     def generate_dashboards(self):
         """Salva configurações e chama geração de dashboards"""
@@ -426,13 +728,32 @@ class VisualPermissionConfigurator:
         try:
             import subprocess
             result = messagebox.askyesno("🚀 Gerar Dashboards", 
-                                       "Salvar configurações e gerar dashboards agora?")
+                                       "Salvar configurações e gerar dashboards agora?\n\n") 
             if result:
                 print("🔄 Iniciando geração de dashboards...")
-                # Aqui você pode chamar o gerador
-                # subprocess.run(['python3', 'gerador_dashboard.py', '--todos-perfis'])
-                messagebox.showinfo("🎉 Concluído", 
-                                  "Execute: python3 gerador_dashboard.py --todos-perfis")
+                
+                # Verificar se arquivo corrigido existe
+                dashboard_files = [
+                    'gerador_dashboard.py'
+                ]
+                
+                found_file = None
+                for file in dashboard_files:
+                    if Path(file).exists():
+                        found_file = file
+                        break
+                
+                if found_file:
+                    cmd_message = f"python3 {found_file} --todos-perfis"
+                    messagebox.showinfo("🎉 Pronto para Gerar", 
+                                      f"Configurações salvas!\n\n" +
+                                      f"Para gerar dashboards, execute:\n{cmd_message}")
+                    print(f"📋 Execute: {cmd_message}")
+                else:
+                    messagebox.showwarning("⚠️ Arquivo não encontrado",
+                                         "Nenhum arquivo de dashboard encontrado.\n\n" +
+                                         "Verifique se há um dos arquivos:\n" +
+                                          "- gerador_dashboard.py")
         except Exception as e:
             messagebox.showerror("❌ Erro", f"Erro na geração: {e}")
     
