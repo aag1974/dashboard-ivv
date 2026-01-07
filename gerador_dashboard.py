@@ -4254,12 +4254,12 @@ class DashboardGenerator:
                   </div>
                   <div class="metric-box">
                     <span class="metric-label">Acumulado no Ano</span>
-                    <span class="metric-value">${(ipcaAcumAno >= 0 ? '+' : '') + ipcaAcumAno.toFixed(2).replace('.', ',')}%</span>
+                    <span class="metric-value positive">${(ipcaAcumAno >= 0 ? '+' : '') + ipcaAcumAno.toFixed(2).replace('.', ',')}%</span>
                     <span class="metric-period">Jan - ${formatPeriod(lastIPCA.ANO_MES)}</span>
                   </div>
                   <div class="metric-box">
                     <span class="metric-label">Acumulado 12 meses</span>
-                    <span class="metric-value">${(ipcaAcum12 >= 0 ? '+' : '') + ipcaAcum12.toFixed(2).replace('.', ',')}%</span>
+                    <span class="metric-value positive">${(ipcaAcum12 >= 0 ? '+' : '') + ipcaAcum12.toFixed(2).replace('.', ',')}%</span>
                     <span class="metric-period">Últimos 12 meses</span>
                   </div>
                 </div>
@@ -4305,7 +4305,7 @@ class DashboardGenerator:
                   <div class="metric-box">
                     <span class="metric-label">Acumulado no Ano</span>
                     <span class="metric-value positive">${(inccAcumAno >= 0 ? '+' : '') + inccAcumAno.toFixed(2).replace('.', ',')}%</span>
-                    <span class="metric-period">${new Date().getFullYear()}</span>
+                    <span class="metric-period">Jan - ${formatPeriod(lastINCC.ANO_MES)}</span>
                   </div>
                   <div class="metric-box">
                     <span class="metric-label">Acumulado 12 Meses</span>
@@ -5196,6 +5196,167 @@ class DashboardGenerator:
             });
             
             return { monthly: monthly, quarterly: quarterly, yearly: yearly };
+        }
+
+        // 🔹 CORREÇÃO FILTROS - SINTAXE TEMPLATE CORRETA
+        function calculateUniqueProjects(data, ofertaTypes) {
+            const projectsByPeriod = {};
+            
+            // Função para limpar nome do projeto (remover blocos/unidades)
+            function cleanProjectName(name) {
+                if (!name || name === 'N/A') return name;
+                
+                // Converter para string e remover sufixos comuns
+                let cleaned = String(name).trim();
+                
+                // Lista de sufixos a remover (ordem importa - mais específicos primeiro)
+                const suffixes = [
+                    // Sufixos de bloco com especificações
+                    / BL [A-Z] COBERTURA$/i,
+                    / BL [A-Z] GARDEN DUPLEX$/i,
+                    / BL [A-Z] GARDEN$/i,
+                    / BL [A-Z] LOFT$/i,
+                    / BL [A-Z] DUPLEX$/i,
+                    / BL [A-Z] STUDIO$/i,
+                    
+                    // Sufixos de bloco simples
+                    / BL [A-Z]$/i,
+                    / BLOCO [A-Z]$/i,
+                    / TORRE [A-Z]$/i,
+                    / TOWER [A-Z]$/i,
+                    
+                    // Sufixos com números
+                    / BL \d+$/i,
+                    / BLOCO \d+$/i,
+                    / TORRE \d+$/i,
+                    / TOWER \d+$/i,
+                    
+                    // Especificações de unidade
+                    / COBERTURA$/i,
+                    / GARDEN$/i,
+                    / DUPLEX$/i,
+                    / STUDIO$/i,
+                    / LOFT$/i,
+                    
+                    // Outros sufixos comuns
+                    / 2 SUÍTES$/i,
+                    / 3 SUÍTES$/i,
+                    / 1 SUÍTE$/i
+                ];
+                
+                // Aplicar todas as limpezas
+                for (let suffix of suffixes) {
+                    cleaned = cleaned.replace(suffix, '');
+                }
+                
+                return cleaned.trim();
+            }
+            
+            data.forEach(function(row) {
+                if (!ofertaTypes.includes(row.OFERTA_VENDA)) return;
+                if (!row.ANO_MES || !row.QUANTIDADE || row.QUANTIDADE <= 0) return;
+                
+                const period = row.ANO_MES;
+                if (!projectsByPeriod[period]) {
+                    projectsByPeriod[period] = new Set();
+                }
+                
+                // CORREÇÃO: Limpar nome do projeto antes de criar chave
+                const empRaw = row.EMPREENDIMENTO || 'N/A';
+                const empCleaned = cleanProjectName(empRaw);
+                const empresa = row.EMPRESA || 'N/A';
+                const bairro = row.BAIRRO || 'N/A';
+                const projectKey = empCleaned + '|' + empresa + '|' + bairro;
+                
+                if (projectKey !== 'N/A|N/A|N/A' && projectKey.indexOf('N/A|') === -1) {
+                    projectsByPeriod[period].add(projectKey);
+                }
+            });
+            
+            const result = {};
+            Object.keys(projectsByPeriod).forEach(function(period) {
+                result[period] = projectsByPeriod[period].size;
+            });
+            
+            return result;
+        }
+
+        function calculateUniqueProjectsPeriodAggregations(data, ofertaTypes) {
+            const monthly = calculateUniqueProjects(data, ofertaTypes);
+            
+            if (Object.keys(monthly).length === 0) {
+                return { monthly: {}, quarterly: {}, yearly: {} };
+            }
+            
+            // Função de limpeza (duplicada para consistência)
+            function cleanProjectName(name) {
+                if (!name || name === 'N/A') return name;
+                
+                let cleaned = String(name).trim();
+                
+                const suffixes = [
+                    / BL [A-Z] COBERTURA$/i, / BL [A-Z] GARDEN DUPLEX$/i, / BL [A-Z] GARDEN$/i,
+                    / BL [A-Z] LOFT$/i, / BL [A-Z] DUPLEX$/i, / BL [A-Z] STUDIO$/i,
+                    / BL [A-Z]$/i, / BLOCO [A-Z]$/i, / TORRE [A-Z]$/i, / TOWER [A-Z]$/i,
+                    / BL \d+$/i, / BLOCO \d+$/i, / TORRE \d+$/i, / TOWER \d+$/i,
+                    / COBERTURA$/i, / GARDEN$/i, / DUPLEX$/i, / STUDIO$/i, / LOFT$/i,
+                    / 2 SUÍTES$/i, / 3 SUÍTES$/i, / 1 SUÍTE$/i
+                ];
+                
+                for (let suffix of suffixes) {
+                    cleaned = cleaned.replace(suffix, '');
+                }
+                
+                return cleaned.trim();
+            }
+            
+            const projectsByQuarter = {};
+            const projectsByYear = {};
+            
+            data.forEach(function(row) {
+                if (!ofertaTypes.includes(row.OFERTA_VENDA)) return;
+                if (!row.ANO_MES || !row.QUANTIDADE || row.QUANTIDADE <= 0) return;
+                
+                const period = parseInt(row.ANO_MES);
+                const year = Math.floor(period / 100);
+                const month = period % 100;
+                const quarter = Math.ceil(month / 3);
+                
+                const quarterKey = year + '_' + quarter + 'T';
+                const yearKey = year.toString();
+                
+                if (!projectsByQuarter[quarterKey]) projectsByQuarter[quarterKey] = new Set();
+                if (!projectsByYear[yearKey]) projectsByYear[yearKey] = new Set();
+                
+                // CORREÇÃO: Usar nome limpo
+                const empRaw = row.EMPREENDIMENTO || 'N/A';
+                const empCleaned = cleanProjectName(empRaw);
+                const empresa = row.EMPRESA || 'N/A';
+                const bairro = row.BAIRRO || 'N/A';
+                const projectKey = empCleaned + '|' + empresa + '|' + bairro;
+                
+                if (projectKey !== 'N/A|N/A|N/A' && projectKey.indexOf('N/A|') === -1) {
+                    projectsByQuarter[quarterKey].add(projectKey);
+                    projectsByYear[yearKey].add(projectKey);
+                }
+            });
+            
+            const quarterly = {};
+            const yearly = {};
+            
+            Object.keys(projectsByQuarter).forEach(function(key) {
+                quarterly[key] = projectsByQuarter[key].size;
+            });
+            
+            Object.keys(projectsByYear).forEach(function(key) {
+                yearly[key] = projectsByYear[key].size;
+            });
+            
+            return {
+                monthly: monthly,
+                quarterly: quarterly,
+                yearly: yearly
+            };
         }
 
         function calculateIVVPeriodAggregations(data) {
@@ -6742,6 +6903,7 @@ class DashboardGenerator:
             const ofertasPeriods = calculatePeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
             const vendasPeriods = calculatePeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const lancamentosPeriods = calculatePeriodAggregations(data, ['OFERTADOS LANCAMENTOS'], false);
+            const lancamentosProjectsPeriods = calculateUniqueProjectsPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']);
             
             // Novos cálculos
             const ofertaAreaPeriods = calculateAreaPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
@@ -6771,9 +6933,9 @@ class DashboardGenerator:
             tablesHtml += createYearlyTable('Vendas Anuais (Unidades)', vendasPeriods.yearly);
             
             // Tabelas 10-12: Lançamentos (Unidades - sem casas decimais)
-            tablesHtml += createTable('Lançamentos Mensais (Unidades [Empreendimentos])', lancamentosPeriods.monthly, false, projectsCount.residencial, projectsCountEmpreendimentos.residencial);
-            tablesHtml += createQuarterlyTable('Lançamentos Trimestrais (Unidades [Empreendimentos])', lancamentosPeriods.quarterly, projectsCount.residencial_quarterly, projectsCountEmpreendimentos.residencial_quarterly);
-            tablesHtml += createYearlyTable('Lançamentos Anuais (Unidades [Empreendimentos])', lancamentosPeriods.yearly, projectsCount.residencial_yearly, projectsCountEmpreendimentos.residencial_yearly);
+            tablesHtml += createTable('Lançamentos Mensais (Unidades [Empreendimentos])', lancamentosPeriods.monthly, false, null, lancamentosProjectsPeriods.monthly);
+            tablesHtml += createQuarterlyTable('Lançamentos Trimestrais (Unidades [Empreendimentos])', lancamentosPeriods.quarterly, null, lancamentosProjectsPeriods.quarterly);
+            tablesHtml += createYearlyTable('Lançamentos Anuais (Unidades [Empreendimentos])', lancamentosPeriods.yearly, null, lancamentosProjectsPeriods.yearly);
             
             // Tabelas 13-15: Ofertas (m² - sem casas decimais)
             tablesHtml += createTable('Oferta Mensal (m²)', ofertaAreaPeriods.monthly, false);
