@@ -48,7 +48,7 @@ Empreendimentos Lançados:
   - 12 | BASE INVESTIMENTOS E INCORPORAÇÕES SA | Sudoeste | EMP_140
 
 Ano: 2022
-Total lançamentos: 23
+Total lançamentos: 24
 Empreendimentos Lançados:
 
   - 02 | BASE INVESTIMENTOS E INCORPORAÇÕES SA | Sudoeste | PARQUE PLANALTO
@@ -63,6 +63,7 @@ Empreendimentos Lançados:
   - 04 | LOTUS CONSTRUTORA | Noroeste | 310 LOTUS
   - 04 | SOLTEC ENGENHARIA LTDA | Park Sul | VENICE PARK
   - 05 | BRASAL INCORPORAÇÕES | Noroeste | RESERVA DOURO
+  - 05 | DIRECIONAL INCORPORAÇÕES | Planaltina | TOTAL VILLE PLANALTINA 6
   - 05 | PAULO OCTAVIO INVESTIMENTOS IMOBILIÁRIOS LTDA | Águas Claras | OCEANIA RESIDENCE
   - 06 | DIRECIONAL INCORPORAÇÕES | Recanto das Emas | CANÁRIOS
   - 07 | BRASAL INCORPORAÇÕES | Noroeste | RESERVA LYBER
@@ -113,9 +114,10 @@ Empreendimentos Lançados:
   - 12 | TERRAL INCORPORADORA | Águas Claras | ELEVA 25
 
 Ano: 2024
-Total lançamentos: 18
+Total lançamentos: 19
 Empreendimentos Lançados:
 
+  - 01 | DIRECIONAL INCORPORAÇÕES | Planaltina | TOTAL VILLE PLANALTINA 3
   - 03 | PAULO OCTAVIO INVESTIMENTOS IMOBILIÁRIOS LTDA | Noroeste | EDMOND BARACAT
   - 04 | CONBRAL SA | Águas Claras | RODRIGO MUNIZ
   - 04 | EMPLAVI INCORPORAÇÕES | Noroeste | PARQUE DOS BURITIS

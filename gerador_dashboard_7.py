@@ -116,7 +116,8 @@ class LaunchDataManager:
     
     def get_public_launch_counts(self, df):
         """
-        VERSÃO SIMPLIFICADA: USA DIRETAMENTE get_projects_details
+        VERSÃO CORRIGIDA: Aplica deduplicação anual diretamente nos dados
+        Em vez de somar contagens mensais que causam contagem dupla
         """
         if df is None or df.empty:
             return {
@@ -140,11 +141,13 @@ class LaunchDataManager:
             period_launches = period_data[period_data['OFERTA_VENDA'] == 'OFERTADOS LANCAMENTOS']
             monthly_units[period] = int(period_launches['QUANTIDADE'].sum())
         
-        # Agregar para trimestral e anual
+        # CORREÇÃO: Agregar unidades por soma (correto)
         quarterly_units = self._aggregate_to_quarters(monthly_units)
         yearly_units = self._aggregate_to_years(monthly_units)
-        quarterly_projects = self._aggregate_to_quarters(monthly_projects)
-        yearly_projects = self._aggregate_to_years(monthly_projects)
+        
+        # CORREÇÃO: Agregar PROJETOS por deduplicação anual (não soma!)
+        quarterly_projects = self._aggregate_projects_to_quarters(projects_details)
+        yearly_projects = self._aggregate_projects_to_years(projects_details)
         
         return {
             "monthly_units": monthly_units,
@@ -154,6 +157,61 @@ class LaunchDataManager:
             "quarterly_projects": quarterly_projects,
             "yearly_projects": yearly_projects
         }
+    
+    def _aggregate_projects_to_quarters(self, projects_details):
+        """Agrega PROJETOS por trimestre com deduplicação"""
+        quarterly = {}
+        
+        # Agrupar projetos por trimestre
+        projects_by_quarter = {}
+        for period, projects_list in projects_details.items():
+            try:
+                period_int = int(period)
+                year = period_int // 100
+                month = period_int % 100
+                quarter = (month - 1) // 3 + 1
+                key = f"{year}_{quarter}T"
+                
+                if key not in projects_by_quarter:
+                    projects_by_quarter[key] = set()
+                
+                # Adicionar projetos únicos ao trimestre
+                for project in projects_list:
+                    projects_by_quarter[key].add(project)
+            except:
+                continue
+        
+        # Contar projetos únicos por trimestre
+        for key, projects_set in projects_by_quarter.items():
+            quarterly[key] = len(projects_set)
+        
+        return quarterly
+    
+    def _aggregate_projects_to_years(self, projects_details):
+        """Agrega PROJETOS por ano com deduplicação"""
+        yearly = {}
+        
+        # Agrupar projetos por ano
+        projects_by_year = {}
+        for period, projects_list in projects_details.items():
+            try:
+                period_int = int(period)
+                year = str(period_int // 100)
+                
+                if year not in projects_by_year:
+                    projects_by_year[year] = set()
+                
+                # Adicionar projetos únicos ao ano
+                for project in projects_list:
+                    projects_by_year[year].add(project)
+            except:
+                continue
+        
+        # Contar projetos únicos por ano
+        for year, projects_set in projects_by_year.items():
+            yearly[year] = len(projects_set)
+        
+        return yearly
     
     def _aggregate_to_quarters(self, monthly_data):
         """Agrega dados mensais para trimestral"""
@@ -513,26 +571,38 @@ class DashboardGenerator:
         ).str.strip()
         
         # Normalizar: remover sufixos padronizados (BL A, TORRE 1, etc)
+        # ORDEM IMPORTA: padrões mais específicos primeiro
         patterns_to_remove = [
-            r'\s+BL\s+[A-Z0-9]+',
-            r'\s+BLOCO\s+[A-Z0-9]+', 
-            r'\s+TORRE\s+[A-Z0-9]+',
-            r'\s+TIPO\b',
-            r'\s+APTO\s+[A-Z0-9]+',
-            r'\s+APT\s+[A-Z0-9]+',
-            r'\s+APARTAMENTO\s+[A-Z0-9]+',
-            r'\s+SALA\s+[A-Z0-9]+',
-            r'\s+LOJA\s+[A-Z0-9]+',
-            r'\s+COBERTURA\b',
-            r'\s+GARDEN\b',
-            r'\s+DUPLEX\b',
-            r'\s+TRIPLEX\b',
+            # Sufixos compostos complexos (BL + especificação + DUPLEX)
+            r'\s+BL\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|LOFT|STUDIO)\s+DUPLEX\b',
+            r'\s+BLOCO\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|LOFT|STUDIO)\s+DUPLEX\b',
+            r'\s+TORRE\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|LOFT|STUDIO)\s+DUPLEX\b',
+            
+            # Sufixos compostos médios (BL + especificação)
+            r'\s+BL\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|DUPLEX|LOFT|STUDIO|TIPO)\b',
+            r'\s+BLOCO\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|DUPLEX|LOFT|STUDIO|TIPO)\b',
+            r'\s+TORRE\s+[A-Z0-9]+\s+(COBERTURA|GARDEN|DUPLEX|LOFT|STUDIO|TIPO)\b',
+            
+            # Sufixos com quartos/suítes
+            r'\s+BL\s+[A-Z0-9]+\s+[0-9]+\s*SUÍTES?\b',
+            r'\s+BL\s+[A-Z0-9]+\s+[0-9]+Q\b',
+            
+            # Sufixos de bloco simples
+            r'\s+BL\s+[A-Z0-9]+\b',
+            r'\s+BLOCO\s+[A-Z0-9]+\b', 
+            r'\s+TORRE\s+[A-Z0-9]+\b',
+            
+            # Especificações independentes
+            r'\s+(COBERTURA|GARDEN|DUPLEX|TRIPLEX|LOFT|STUDIO)\b',
+            r'\s+(TIPO|APTO|APT|APARTAMENTO)\s*[A-Z0-9]*\b',
+            r'\s+SALA\s+[A-Z0-9]+\b',
+            r'\s+LOJA\s+[A-Z0-9]+\b',
+            
+            # Sufixos de quartos e suítes
             r'\s+[0-9]+Q\b',                    
-            r'\s+[0-9]+\s+QUARTOS?',           
-            r'\s+COM\s+TERRAÇO',               
-            r'\s+STUDIO\b',                    
-            r'\s+LOFT\b',                      
-            r'\s+[0-9]+\s+SUÍTES?\b'                   
+            r'\s+[0-9]+\s+QUARTOS?\b',           
+            r'\s+[0-9]+\s+SUÍTES?\b',
+            r'\s+COM\s+TERRAÇO\b',               
         ]
         
         # Criar coluna com termo principal (normalizado)
@@ -1252,6 +1322,23 @@ class DashboardGenerator:
                 # 🔹 CORRIGIDO: Usar contagens separadas de unidades e empreendimentos
         residential_counts = self.launch_manager.get_public_launch_counts(self.residential_data)
         commercial_counts = self.launch_manager.get_public_launch_counts(self.commercial_data)
+        
+        # 🎯 CORREÇÃO DEFINITIVA: Adicionar dados pré-processados para JavaScript
+        # Estes dados substituirão calculateUniqueProjectsPeriodAggregations no JavaScript
+        launches_preprocessed = {
+            "residencial": {
+                "monthly": residential_counts["monthly_projects"],
+                "quarterly": residential_counts["quarterly_projects"], 
+                "yearly": residential_counts["yearly_projects"]
+            },
+            "comercial": {
+                "monthly": commercial_counts["monthly_projects"],
+                "quarterly": commercial_counts["quarterly_projects"],
+                "yearly": commercial_counts["yearly_projects"]  
+            }
+        }
+        launches_preprocessed_json = json.dumps(launches_preprocessed, ensure_ascii=False)
+        
         # Consolidar contagens de UNIDADES (valores principais das tabelas)
         projects_count = {
             "residencial": residential_counts["monthly_units"],
@@ -1370,6 +1457,7 @@ class DashboardGenerator:
             juros_reais_json,    
             projects_count_json,
             projects_count_empreendimentos_json,  # NOVO parâmetro
+            launches_preprocessed_json,  # 🎯 CORREÇÃO DEFINITIVA: Dados pré-processados
             residential_crosstabs_json,  # Dados específicos para crosstabs
             commercial_crosstabs_json,   # Dados específicos para crosstabs
             menu_config_json          # 🔐 NOVO: Configurações de menu
@@ -1388,6 +1476,7 @@ class DashboardGenerator:
         juros_reais_json,
         projects_count_json,
         projects_count_empreendimentos_json,  
+        launches_preprocessed_json,  # 🎯 CORREÇÃO DEFINITIVA: Dados pré-processados
         residential_crosstabs_json,  
         commercial_crosstabs_json,
         menu_config_json,
@@ -1399,6 +1488,53 @@ class DashboardGenerator:
         """Cria a estrutura HTML completa"""
         
         css_styles = """
+        /* ==================== VARIÁVEIS CSS ==================== */
+        :root {
+            /* Cores principais */
+            --primary-blue: #4A90E2;
+            --primary-dark: #357ABD;
+            --secondary-blue: #1976D2;
+            --accent-blue: #2196F3;
+            
+            /* Cores de feedback */
+            --success-green: #27AE60;
+            --error-red: #E74C3C;
+            --neutral-gray: #95A5A6;
+            
+            /* Cores de interface */
+            --white: #FFFFFF;
+            --light-gray: #F8F9FA;
+            --border-gray: #E5E5E5;
+            --text-dark: #333;
+            --text-medium: #666;
+            --text-light: #999;
+            
+            /* Espaçamentos */
+            --spacing-xs: 5px;
+            --spacing-sm: 10px;
+            --spacing-md: 15px;
+            --spacing-lg: 20px;
+            --spacing-xl: 25px;
+            
+            /* Dimensões */
+            --sidebar-width: 280px;
+            --sidebar-collapsed: 60px;
+            --header-height: 140px;
+            --border-radius: 10px;
+            --border-radius-sm: 6px;
+            --border-radius-xs: 4px;
+            
+            /* Sombras */
+            --shadow-light: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-heavy: 0 4px 20px rgba(0,0,0,0.15);
+            
+            /* Transições */
+            --transition-fast: 0.2s ease;
+            --transition-normal: 0.3s ease;
+        }
+
+        /* ==================== RESET E BASE ==================== */
         * {
             margin: 0; 
             padding: 0;
@@ -1407,51 +1543,51 @@ class DashboardGenerator:
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-dark) 100%);
             min-height: 100vh;
-            color: #333;
-            padding: 20px;
+            color: var(--text-dark);
+            padding: var(--spacing-lg);
         }
 
         #dashboardContainer {
             display: none;
         }
 
+        /* ==================== LAYOUT PRINCIPAL ==================== */
+        .dashboard-container {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .main-container {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            transition: margin-left var(--transition-normal), width var(--transition-normal);
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--header-height);
+        }
+
+        .main-container.collapsed {
+            margin-left: var(--sidebar-collapsed);
+            width: calc(100% - var(--sidebar-collapsed));
+        }
+
+        /* ==================== HEADER ==================== */
         .header {
-          background: rgba(255,255,255,0.95);
-          border-radius: 10px;
-          margin-bottom: 20px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-          display: flex;
-          align-items: center;
-          justify-content: space-between; 
-          padding: 20px;
+            background: rgba(255,255,255,0.95);
+            border-radius: var(--border-radius);
+            margin-bottom: var(--spacing-lg);
+            box-shadow: var(--shadow-medium);
+            display: flex;
+            align-items: center;
+            justify-content: space-between; 
+            padding: var(--spacing-lg);
         }
 
         .logo-container {
-          flex: 0 0 auto; /* logo fixa na esquerda */
-        }
-
-        .header-center {
-          flex: 1;                  
-          text-align: center;       
-        }
-
-        .dashboard-title {
-          font-size: 22px;
-          font-weight: bold;
-          margin-bottom: 12px;
-          color: #1976D2;
-        }
-
-        .view-toggle {
-          display: flex;
-          gap: 12px;
-          justify-content: center;
-        }
-
-        .logo-container {
-            flex-shrink: 0;
+            flex: 0 0 auto;
         }
 
         .logo-container img {
@@ -1459,12 +1595,100 @@ class DashboardGenerator:
             width: auto;
         }
 
-        /* Estilos para informações do usuário */
+        .header-center {
+            flex: 1;
+            text-align: center;
+        }
+
+        .dashboard-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: var(--secondary-blue);
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .view-btn {
+            padding: var(--spacing-sm) var(--spacing-xl);
+            border: 2px solid var(--primary-blue);
+            border-radius: 25px;
+            background: rgba(255,255,255,0.9);
+            color: var(--primary-blue);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+
+        .view-btn.active {
+            background: var(--primary-blue);
+            color: var(--white);
+        }
+
+        /* ==================== SIDEBAR ==================== */
+        .sidebar {
+            background: var(--white);
+            border-right: 1px solid var(--border-gray);
+            width: var(--sidebar-width);
+            transition: width var(--transition-normal);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 2000;
+            overflow-y: auto;
+            box-shadow: 2px 0 8px var(--shadow-heavy);
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed);
+        }
+
+        .sidebar .logo-container {
+            padding: var(--spacing-lg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: 1px solid var(--border-gray);
+            flex-shrink: 0;
+            min-height: 85px;
+            box-sizing: border-box;
+        }
+
+        .sidebar.collapsed .logo-container {
+            padding: var(--spacing-sm) var(--spacing-xs);
+            min-height: 85px;
+        }
+
+        .sidebar .logo-container img {
+            height: 60px;
+            width: auto;
+            transition: all var(--transition-normal);
+            display: block;
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        .sidebar.collapsed .logo-container img {
+            height: 40px;
+            width: auto;
+            max-width: 40px;
+            object-fit: contain;
+        }
+
+        /* ==================== USER INFO ==================== */
         .user-info-container {
             background: rgba(74, 144, 226, 0.1);
             border-radius: 8px;
             padding: 12px;
-            margin: 10px 0;
+            margin: var(--spacing-sm) 0;
             border: 1px solid rgba(74, 144, 226, 0.2);
         }
 
@@ -1475,16 +1699,15 @@ class DashboardGenerator:
         }
 
         .user-icon {
-            font-size: 16px;
-            background: #4A90E2;
-            color: white;
+            font-size: 12px;
+            background: var(--primary-blue);
+            color: var(--white);
             width: 24px;
             height: 24px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
         }
 
         .user-details {
@@ -1496,12 +1719,12 @@ class DashboardGenerator:
         .user-name {
             font-weight: 600;
             font-size: 12px;
-            color: #333;
+            color: var(--text-dark);
         }
 
         .user-role {
             font-size: 10px;
-            color: #666;
+            color: var(--text-medium);
             background: rgba(74, 144, 226, 0.1);
             padding: 2px 6px;
             border-radius: 10px;
@@ -1513,59 +1736,169 @@ class DashboardGenerator:
             font-weight: 500;
         }
 
-        /* Logout link inside the user info container */
         .logout-link {
             display: block;
-            margin-top: 5px;
+            margin-top: var(--spacing-xs);
             font-size: 10px;
-            color: #2196F3;
+            color: var(--accent-blue);
             text-decoration: underline;
             cursor: pointer;
         }
 
-        .header-content {
-            flex-grow: 1;
+        /* ==================== NAVEGAÇÃO SIDEBAR ==================== */
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
-        .header h1 {
-            color: #4A90E2;
-            font-size: 1.8rem;
-            font-weight: 600;
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .view-toggle {
+        .sidebar li {
             display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-            gap: 10px;
-        }
-
-        .view-btn {
-            padding: 10px 25px;
-            border: 2px solid #4A90E2;
-            border-radius: 25px;
-            background: rgba(255,255,255,0.9);
-            color: #4A90E2;
-            font-size: 14px;
-            font-weight: 600;
+            align-items: center;
             cursor: pointer;
-            transition: all 0.3s ease;
+            padding: var(--spacing-sm) var(--spacing-lg);
+            color: var(--text-dark);
+            font-size: 14px;
+            transition: background var(--transition-fast);
+            white-space: nowrap;
         }
 
-        .view-btn.active {
-            background: #4A90E2;
-            color: white;
+        .sidebar li:hover {
+            background: #F0F4F8;
         }
 
+        .sidebar li.active {
+            background: #E5EEF7;
+            font-weight: 600;
+        }
+
+        .sidebar li .icon {
+            margin-right: var(--spacing-sm);
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .sidebar.collapsed li .text {
+            display: none;
+        }
+
+        .sidebar.collapsed .expand-icon {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-item .icon {
+            cursor: pointer;
+            padding: var(--spacing-xs);
+            border-radius: var(--border-radius-xs);
+            transition: all var(--transition-fast);
+        }
+
+        .sidebar.collapsed .nav-item .icon:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+            transform: scale(1.1);
+        }
+
+        .sidebar.collapsed .nav-item {
+            position: relative;
+        }
+
+        .sidebar.collapsed .nav-item:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: 70px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--text-dark);
+            color: var(--white);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius-xs);
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0.9;
+        }
+
+        .sidebar-toggle {
+            padding: var(--spacing-sm);
+            text-align: center;
+            cursor: pointer;
+            border-top: 1px solid var(--border-gray);
+            flex-shrink: 0;
+        }
+
+        .nav-main {
+            border-bottom: 2px solid var(--border-gray);
+            flex-shrink: 0;
+        }
+
+        .nav-main li {
+            font-weight: 600;
+            font-size: 15px;
+            background: #FAFAFA;
+            position: relative;
+        }
+
+        .nav-main li .expand-icon {
+            position: absolute;
+            right: var(--spacing-md);
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform var(--transition-fast);
+            font-size: 12px;
+        }
+
+        .nav-main li.expanded .expand-icon {
+            transform: translateY(-50%) rotate(90deg);
+        }
+
+        .nav-categories {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .submenu-container {
+            display: none;
+            background: var(--white);
+            border-left: 3px solid var(--primary-blue);
+            margin-left: var(--spacing-sm);
+        }
+
+        .submenu-container.expanded {
+            display: block;
+        }
+
+        .submenu-container li {
+            padding: 12px var(--spacing-lg) 12px 40px;
+            font-size: 13px;
+            font-weight: normal !important;
+            background: var(--white);
+            border-bottom: 1px solid #F7F7F7;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .submenu-container li:hover {
+            background: #F0F4F8;
+            padding-left: 45px;
+        }
+
+        .submenu-container li.active {
+            background: #E5EEF7;
+            color: var(--primary-blue);
+            font-weight: normal !important;
+            border-left: 4px solid var(--primary-blue);
+            padding-left: 41px;
+        }
+
+        /* ==================== FILTROS ==================== */
         .filters-container {
-            background: #FFFFFF;
+            background: var(--white);
             border-radius: 0;
-            padding: 15px 20px;
+            padding: var(--spacing-md) var(--spacing-lg);
             margin-bottom: 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border-bottom: 1px solid #E5E5E5;
+            box-shadow: var(--shadow-light);
+            border-bottom: 1px solid var(--border-gray);
             position: fixed;
             top: 0;
             left: 0;
@@ -1573,20 +1906,32 @@ class DashboardGenerator:
             width: 100%;
             z-index: 1500;
             padding-left: 300px;
-            transition: padding-left 0.3s ease;
+            transition: padding-left var(--transition-normal);
+        }
+
+        .filters-container.collapsed {
+            padding-left: 80px;
         }
 
         .filters-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .filter-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--secondary-blue);
+            margin-bottom: 0;
+            text-transform: uppercase;
         }
 
         .filters-grid {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
+            gap: var(--spacing-lg);
             margin-bottom: 0;
             align-items: center;
         }
@@ -1599,8 +1944,8 @@ class DashboardGenerator:
 
         .filter-label {
             font-weight: 600;
-            margin-bottom: 5px;
-            color: #333;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-dark);
             font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1614,29 +1959,26 @@ class DashboardGenerator:
 
         .dropdown-button {
             width: 100%;
-            border: 1px solid #E5E5E5;
-            border-radius: 4px;
-            padding: 8px 10px;
+            border: 1px solid var(--border-gray);
+            border-radius: var(--border-radius-xs);
+            padding: 8px var(--spacing-sm);
             font-size: 12px;
-            background: white;
+            background: var(--white);
             cursor: pointer;
-            transition: border-color 0.3s ease;
+            transition: border-color var(--transition-normal);
             text-align: left;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .dropdown-button:hover {
-            border-color: #4A90E2;
-        }
-
+        .dropdown-button:hover,
         .dropdown-button.open {
-            border-color: #4A90E2;
+            border-color: var(--primary-blue);
         }
 
         .dropdown-button .arrow {
-            transition: transform 0.3s ease;
+            transition: transform var(--transition-normal);
             font-size: 12px;
         }
 
@@ -1649,10 +1991,10 @@ class DashboardGenerator:
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
-            border: 1px solid #E5E5E5;
+            background: var(--white);
+            border: 1px solid var(--border-gray);
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-medium);
             z-index: 1000;
             max-height: 200px;
             overflow-y: auto;
@@ -1669,16 +2011,16 @@ class DashboardGenerator:
             align-items: center;
             padding: 8px 12px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: background-color var(--transition-normal);
         }
 
         .dropdown-option:hover {
-            background-color: #F8F9FA;
+            background-color: var(--light-gray);
         }
 
         .dropdown-option.select-all {
-            background-color: #F8F9FA;
-            border-bottom: 1px solid #E5E5E5;
+            background-color: var(--light-gray);
+            border-bottom: 1px solid var(--border-gray);
             font-weight: 600;
             font-size: 12px;
         }
@@ -1697,65 +2039,77 @@ class DashboardGenerator:
         .filter-actions {
             display: flex;
             justify-content: flex-end;
-            gap: 10px;
+            gap: var(--spacing-sm);
             flex: 0 0 auto;
         }
 
         .filter-btn {
-            padding: 8px 20px;
+            padding: 8px var(--spacing-lg);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--border-radius-sm);
             font-size: 13px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all var(--transition-normal);
             font-weight: 600;
         }
 
         .apply-btn {
-            background: #4A90E2;
-            color: white;
+            background: var(--primary-blue);
+            color: var(--white);
         }
 
-        .clear-btn {
-            background: #f8f9fa;
-            color: #666;
-            border: 1px solid #ddd;
-        }
-
-        /* Estilo discreto para botões de exportação de PDF/Excel */
+        .clear-btn,
         .export-btn {
-            background: #f8f9fa;
-            color: #666;
+            background: var(--light-gray);
+            color: var(--text-medium);
             border: 1px solid #ddd;
+        }
+
+        .export-btn {
+            background-color: var(--secondary-blue);
+            color: var(--white);
+            border: none;
         }
 
         .filter-btn:hover {
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: var(--shadow-medium);
         }
 
+        .export-btn:hover {
+            background-color: #1565c0;
+        }
+
+        /* ==================== TABELAS ==================== */
         .tables-container {
             display: grid;
-            gap: 20px;
+            gap: var(--spacing-lg);
             padding-top: 30px;
         }
 
         .table-card {
             background: rgba(255,255,255,0.98);
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-xl);
+            box-shadow: var(--shadow-medium);
             overflow-x: auto;
-            margin-bottom: 20px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
         }
 
         .table-title {
             font-size: 18px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #4A90E2;
+            color: var(--text-dark);
+            margin-bottom: var(--spacing-lg);
+            padding-bottom: var(--spacing-sm);
+            border-bottom: 2px solid var(--primary-blue);
         }
 
         .data-table {
@@ -1765,13 +2119,16 @@ class DashboardGenerator:
         }
 
         .data-table th {
-            background: #F8F9FA;
+            background: var(--light-gray);
             padding: 8px 6px;
             text-align: center;
             font-weight: 600;
             color: #555;
-            border-bottom: 2px solid #E5E5E5;
+            border-bottom: 2px solid var(--border-gray);
             white-space: nowrap;
+            height: 14px;
+            line-height: 14px;
+            vertical-align: middle;
         }
 
         .data-table th:first-child {
@@ -1783,386 +2140,107 @@ class DashboardGenerator:
             padding: 6px 6px;
             border-bottom: 1px solid #F0F0F0;
             text-align: center;
+            height: 14px;
+            line-height: 14px;
+            vertical-align: middle;
+            white-space: nowrap;
         }
 
         .data-table td:first-child {
             text-align: left;
             font-weight: 500;
-            color: #333;
+            color: var(--text-dark);
         }
 
         .data-table tbody tr:hover {
-            background-color: #F8F9FA;
-        }
-
-        .data-table th,
-        .data-table td {
-            height: 24px;          /* ALTURA PADRÃO DA LINHA */
-            line-height: 24px;     /* TEXTO CENTRALIZADO NA ALTURA */
-            vertical-align: middle;
-            white-space: nowrap;
+            background-color: var(--light-gray);
         }
 
         .variation-row {
-            background: #F8F9FA !important;
+            background: var(--light-gray) !important;
             font-weight: 600;
-            border-top: 2px solid #E5E5E5;
+            border-top: 2px solid var(--border-gray);
         }
 
         .variation-row td {
-            color: #666;
+            color: var(--text-medium);
             font-size: 12px;
             padding: 8px;
         }
 
-        .positive { color: #27AE60 !important; }
-        .negative { color: #E74C3C !important; }
-        .neutral { color: #95A5A6 !important; }
+        .positive { color: var(--success-green) !important; }
+        .negative { color: var(--error-red) !important; }
+        .neutral { color: var(--neutral-gray) !important; }
 
         .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: var(--text-medium);
             font-style: italic;
         }
 
         .no-data {
             text-align: center;
             padding: 40px;
-            color: #999;
+            color: var(--text-light);
         }
 
         .variation-info {
             font-size: 12px;
-            color: #333;
-            margin-top: 10px;
+            color: var(--text-dark);
+            margin-top: var(--spacing-sm);
             padding: 8px;
             background-color: transparent;
-            border-radius: 4px;
-            border-left: 3px solid #4A90E2;
+            border-radius: var(--border-radius-xs);
+            border-left: 3px solid var(--primary-blue);
         }
 
         .incomplete-note {
             font-size: 12px;
-            color: #1976D2;
-            margin-top: 10px;
+            color: var(--secondary-blue);
+            margin-top: var(--spacing-sm);
             padding: 8px;
             background-color: #E3F2FD;
-            border-radius: 4px;
+            border-radius: var(--border-radius-xs);
         }
 
         .variation-info .positive {
-            color: #27AE60 !important;
+            color: var(--success-green) !important;
             font-weight: 600;
         }
 
         .variation-info .negative {
-            color: #E74C3C !important;
+            color: var(--error-red) !important;
             font-weight: 600;
         }
 
         .variation-info .neutral {
-            color: #95A5A6 !important;
+            color: var(--neutral-gray) !important;
             font-weight: 600;
         }
 
-        .footer {
-            position: relative;
-            bottom: auto;
-            left: auto;
-            right: auto;
-            background: #FFFFFF;
-            padding: 15px;
-            text-align: center;
+        .table-note {
             font-size: 12px;
-            color: #666;
-            border-top: 1px solid #E5E5E5;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            margin-top: 40px;
-            z-index: 10000;
+            color: #777;
+            margin-top: 6px;
         }
 
-        /* ========= NOVO LAYOUT COM MENU LATERAL ========= */
-        #dashboardContainer {
-            display: flex;
-            flex-direction: row;
-        }
-        .sidebar {
-            background: #FFFFFF;
-            border-right: 1px solid #E5E5E5;
-            width: 280px;
-            transition: width 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 2000;
-            overflow-y: auto;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.15);
-        }
-        .sidebar.collapsed {
-            width: 60px;
-        }
-        .sidebar .logo-container {
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-bottom: 1px solid #E5E5E5;
-            flex-shrink: 0;
-            min-height: 85px; /* Ajuste fino para alinhamento perfeito */
-            box-sizing: border-box;
-        }
-        
-        /* Ajustar padding da logo quando sidebar está retraído */
-        .sidebar.collapsed .logo-container {
-            padding: 10px 5px;
-            min-height: 85px; /* Mantém alinhamento perfeito mesmo quando collapsed */
-        }
-        .sidebar ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .sidebar li {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            padding: 10px 20px;
-            color: #333;
-            font-size: 14px;
-            transition: background 0.2s ease;
-            white-space: nowrap;
-        }
-        .sidebar li:hover {
-            background: #F0F4F8;
-        }
-        .sidebar li.active {
-            background: #E5EEF7;
-            font-weight: 600;
-        }
-        .sidebar li .icon {
-            margin-right: 10px;
-            font-size: 18px;
-            width: 24px;
-            text-align: center;
-        }
-        .sidebar.collapsed li .text {
-            display: none;
-        }
-        
-        /* Esconder setas quando sidebar está retraído */
-        .sidebar.collapsed .expand-icon {
-            display: none;
-        }
-        
-        /* Ícones das views ficam clicáveis quando sidebar retraída */
-        .sidebar.collapsed .nav-item .icon {
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-        
-        /* Hover effect nos ícones quando sidebar retraída */
-        .sidebar.collapsed .nav-item .icon:hover {
-            background-color: rgba(74, 144, 226, 0.1);
-            transform: scale(1.1);
-        }
-        
-        /* Tooltip para mostrar nome da view quando sidebar retraída */
-        .sidebar.collapsed .nav-item {
-            position: relative;
-        }
-        
-        .sidebar.collapsed .nav-item:hover::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 70px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #333;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 1000;
-            opacity: 0.9;
-        }
-        
-        /* Logo no sidebar - Estados Normal e Retraído */
-        .sidebar .logo-container img {
-            height: 60px;
-            width: auto;
-            transition: all 0.3s ease;
-            display: block;
-            max-width: 100%;
-            object-fit: contain; /* Mantém proporção */
-        }
-        
-        /* Logo menor quando sidebar está retraído - mantém proporção */
-        .sidebar.collapsed .logo-container img {
-            height: 40px;
-            width: auto;
-            max-width: 40px; /* Limita largura para caber na sidebar retraída */
-            object-fit: contain; /* Mantém proporção sem distorção */
-        }
-        
-        /* Troca da imagem quando retraído - usando JavaScript para ser mais confiável */
-        .sidebar .sidebar-toggle {
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-            border-top: 1px solid #E5E5E5;
-            flex-shrink: 0;
-        }
-        
-        /* Menu principal (Residencial/Comercial) */
-        .nav-main {
-            border-bottom: 2px solid #E5E5E5;
-            flex-shrink: 0;
-        }
-        
-        .nav-main li {
-            font-weight: 600;
-            font-size: 15px;
-            background: #FAFAFA;
-            position: relative;
-        }
-        
-        .nav-main li .expand-icon {
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            transition: transform 0.2s ease;
-            font-size: 12px;
-        }
-        
-        .nav-main li.expanded .expand-icon {
-            transform: translateY(-50%) rotate(90deg);
-        }
-        
-        /* Submenus de categorias */
-        .nav-categories {
-            flex: 1;
-            overflow-y: auto;
-        }
-        
-        /* Container para submenus de cada setor */
-        .submenu-container {
-            display: none;
-            background: #FFFFFF;
-            border-left: 3px solid #4A90E2;
-            margin-left: 10px;
-        }
-        
-        .submenu-container.expanded {
-            display: block;
-        }
-        
-        .submenu-container li {
-            padding: 12px 20px 12px 40px;
-            font-size: 13px;
-            font-weight: normal !important; /* Forçando remoção do negrito */
-            background: #FFFFFF;
-            border-bottom: 1px solid #F7F7F7;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        
-        .submenu-container li:hover {
-            background: #F0F4F8;
-            padding-left: 45px;
-        }
-        
-        .submenu-container li.active {
-            background: #E5EEF7;
-            color: #4A90E2;
-            font-weight: normal !important; /* Submenus ativos também sem negrito */
-            border-left: 4px solid #4A90E2;
-            padding-left: 41px;
-        }
-        .main-container {
-            flex: 1;
-            margin-left: 280px;
-            width: calc(100% - 280px);
-            transition: margin-left 0.3s ease, width 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            padding-top: 140px;
-            /* Remover altura mínima fixa para permitir que o conteúdo cresça naturalmente e o sticky funcione corretamente */
-        }
-        .main-container.collapsed {
-            margin-left: 60px;
-            width: calc(100% - 60px);
-        }
-        
-        /* Ajuste da barra de filtros */
-        .filters-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            z-index: 1500;
-            padding-left: 300px;
-            transition: padding-left 0.3s ease;
-        }
-        
-        .filters-container.collapsed {
-            padding-left: 80px;
-        }
-        /* A barra de filtros fica sempre visível no topo da área principal */
-        .filter-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1976D2;
-            margin-bottom: 0;
-            text-transform: uppercase;
-        }
-
-        .table-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .export-btn {
-            background-color: #1976d2;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .export-btn:hover {
-            background-color: #1565c0;
-        }
-
-        /* INSIGHTS */
+        /* ==================== INSIGHTS ==================== */
         .insights-container {
             display: grid;
-            gap: 15px;
+            gap: var(--spacing-md);
         }
-        
+
         .insight-card {
             background: rgba(255,255,255,0.98);
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            box-shadow: var(--shadow-medium);
             overflow: visible;
         }
-        
+
         .insight-title {
-            color: #4A90E2;
+            color: var(--primary-blue);
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 6px;
@@ -2170,78 +2248,78 @@ class DashboardGenerator:
             align-items: center;
             gap: 8px;
         }
-        
+
         .insight-description {
-            color: #666;
+            color: var(--text-medium);
             font-size: 12px;
-            margin-bottom: 15px;
+            margin-bottom: var(--spacing-md);
             line-height: 1.4;
         }
-        
+
+        .insight-subtitle {
+            font-size: 13px;
+            color: #555;
+            margin: 6px 0 12px 0;
+        }
+
         .insight-metrics {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 12px;
             margin-bottom: 12px;
         }
-        
+
         .metric-box {
-            background: #F8F9FA;
+            background: var(--light-gray);
             border-radius: 8px;
             padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 4px;
-            border-left: 4px solid #4A90E2;
+            border-left: 4px solid var(--primary-blue);
         }
-        
+
         .metric-label {
             font-size: 10px;
-            color: #666;
+            color: var(--text-medium);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-weight: 600;
         }
-        
+
         .metric-value {
             font-size: 22px;
             font-weight: 700;
-            color: #333;
+            color: var(--text-dark);
         }
-        
+
         .metric-value.positive {
-            color: #27AE60;
+            color: var(--success-green);
         }
-        
+
         .metric-value.negative {
-            color: #E74C3C;
+            color: var(--error-red);
         }
-        
+
         .metric-period {
             font-size: 9px;
-            color: #999;
+            color: var(--text-light);
         }
-        
+
         .insight-note {
             font-size: 12px;
-            color: #999;
+            color: var(--text-light);
             font-style: italic;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #E5E5E5;
+            margin-top: var(--spacing-sm);
+            padding-top: var(--spacing-sm);
+            border-top: 1px solid var(--border-gray);
         }
-        
-        .insight-subtitle {
-            font-size: 13px;
-            color: #555;
-            margin: 6px 0 12px 0;
-        }
-        
-        /* Gráfico - Desktop */
+
+        /* ==================== GRÁFICOS ==================== */
         .chart-wrapper {
-            background: #fff;
-            border: 1px solid #E5E5E5;
-            border-radius: 10px;
+            background: var(--white);
+            border: 1px solid var(--border-gray);
+            border-radius: var(--border-radius);
             padding: 16px;
             margin-top: 12px;
             overflow-x: auto;
@@ -2254,30 +2332,49 @@ class DashboardGenerator:
             max-height: 300px;
         }
 
-        .table-note {
+        /* ==================== FOOTER ==================== */
+        .footer {
+            position: relative;
+            bottom: auto;
+            left: auto;
+            right: auto;
+            background: var(--white);
+            padding: var(--spacing-md);
+            text-align: center;
             font-size: 12px;
-            color: #777;
-            margin-top: 6px;
+            color: var(--text-medium);
+            border-top: 1px solid var(--border-gray);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            margin-top: 40px;
+            z-index: 10000;
         }
 
+        /* ==================== RESPONSIVE DESIGN ==================== */
         @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 100%;
+                --sidebar-collapsed: 60px;
+                --spacing-lg: 15px;
+                --spacing-md: 12px;
+            }
+
             body {
-                padding: 15px;
+                padding: var(--spacing-md);
             }
 
             .dashboard-container {
-                padding: 15px !important;
+                padding: var(--spacing-md) !important;
                 padding-bottom: 100px !important;
             }
             
             .header {
                 flex-direction: column;
-                padding: 15px;
-                margin-bottom: 15px;
+                padding: var(--spacing-md);
+                margin-bottom: var(--spacing-md);
             }
             
             .logo-container {
-                margin-bottom: 10px;
+                margin-bottom: var(--spacing-sm);
             }
             
             .logo-container img {
@@ -2287,7 +2384,7 @@ class DashboardGenerator:
 
             .header h1 {
                 font-size: 1.2rem;
-                margin-bottom: 10px;
+                margin-bottom: var(--spacing-sm);
             }
             
             .view-toggle {
@@ -2300,10 +2397,10 @@ class DashboardGenerator:
             }
             
             .filters-container {
-                padding: 12px 15px;
+                padding: 12px var(--spacing-md);
                 margin-bottom: 0;
                 position: relative;
-                padding-left: 15px;
+                padding-left: var(--spacing-md);
                 width: 100%;
                 left: 0;
                 right: 0;
@@ -2312,13 +2409,13 @@ class DashboardGenerator:
             .filters-header {
                 flex-direction: column;
                 align-items: stretch;
-                gap: 10px;
-                margin-bottom: 10px;
+                gap: var(--spacing-sm);
+                margin-bottom: var(--spacing-sm);
             }
             
             .filters-grid {
                 flex-direction: column;
-                gap: 15px;
+                gap: var(--spacing-md);
                 align-items: stretch;
             }
             
@@ -2332,10 +2429,10 @@ class DashboardGenerator:
             }
             
             .table-card {
-                padding: 15px;
+                padding: var(--spacing-md);
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
-                margin-bottom: 15px;
+                margin-bottom: var(--spacing-md);
             }
 
             .data-table {
@@ -2350,67 +2447,60 @@ class DashboardGenerator:
                 padding: 6px 4px;
                 text-align: left;
                 white-space: nowrap;
-            }
-
-            .data-table th,
-            .data-table td {
-                padding: 6px 4px;
-                height: 24px;
-                line-height: 24px;
+                height: 14px;
+                line-height: 14px;
                 vertical-align: middle;
-                white-space: nowrap;
             }
 
-            /* INSIGHTS MOBILE - AJUSTES COMPACTOS */
+            /* INSIGHTS MOBILE */
             .insights-container {
-                gap: 12px;              /* REDUZA de 15px para 12px */
+                gap: 12px;
             }
             
             .insight-card {
-                padding: 12px;          /* REDUZA de 15px para 12px */
+                padding: 12px;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
 
             .insight-title {
-                font-size: 14px;        /* REDUZA de 16px para 14px */
-                margin-bottom: 6px;     /* REDUZA de 8px para 6px */
+                font-size: 14px;
+                margin-bottom: 6px;
             }
             
             .insight-description {
-                font-size: 11px;        /* REDUZA de 12px para 11px */
-                margin-bottom: 12px;    /* REDUZA de 15px para 12px */
+                font-size: 11px;
+                margin-bottom: 12px;
             }
             
             .insight-metrics {
                 grid-template-columns: 1fr;
-                gap: 10px;              /* REDUZA de 12px para 10px */
+                gap: var(--spacing-sm);
             }
             
             .metric-box {
-                padding: 10px;          /* REDUZA de 12px para 10px */
-                gap: 3px;               /* REDUZA de 4px para 3px */
+                padding: var(--spacing-sm);
+                gap: 3px;
             }
             
             .metric-label {
-                font-size: 9px;         /* REDUZA de 10px para 9px */
+                font-size: 9px;
             }
             
             .metric-value {
-                font-size: 18px;        /* REDUZA de 22px para 18px */
+                font-size: 18px;
             }
             
             .metric-period {
-                font-size: 8px;         /* REDUZA de 9px para 8px */
+                font-size: 8px;
             }
             
             .insight-note {
-                font-size: 9px;         /* REDUZA de 10px para 9px */
-                margin-top: 8px;        /* REDUZA de 10px para 8px */
-                padding-top: 8px;       /* REDUZA de 10px para 8px */
+                font-size: 9px;
+                margin-top: 8px;
+                padding-top: 8px;
             }
             
-            /* Gráfico - ocupa largura total com scroll */
             .chart-wrapper {
                 min-width: 600px;
                 margin: 12px 0;
@@ -2422,7 +2512,6 @@ class DashboardGenerator:
                 max-height: 250px;
             }
 
-            /* Ajuste de responsividade para tabelas e gráficos em Insights */
             .insight-card .data-table {
                 font-size: 10px;
                 min-width: 650px;
@@ -2449,8 +2538,84 @@ class DashboardGenerator:
             
             .footer {
                 font-size: 10px;
-                padding: 10px;
+                padding: var(--spacing-sm);
             }
+
+            /* Sidebar mobile */
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform var(--transition-normal);
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .main-container {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .filters-container {
+                padding-left: var(--spacing-md);
+            }
+        }
+
+        /* ==================== UTILITÁRIOS ==================== */
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+
+        .font-bold { font-weight: 600; }
+        .font-normal { font-weight: normal; }
+
+        .mb-sm { margin-bottom: var(--spacing-sm); }
+        .mb-md { margin-bottom: var(--spacing-md); }
+        .mb-lg { margin-bottom: var(--spacing-lg); }
+
+        .p-sm { padding: var(--spacing-sm); }
+        .p-md { padding: var(--spacing-md); }
+        .p-lg { padding: var(--spacing-lg); }
+
+
+        /* ==================== ACESSIBILIDADE ==================== */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .filter-btn:focus,
+        .view-btn:focus,
+        .dropdown-button:focus {
+            outline: 2px solid var(--primary-blue);
+            outline-offset: 2px;
+        }
+
+        /* ==================== PRINT STYLES ==================== */
+        @media print {
+            .sidebar,
+            .filters-container {
+                display: none;
+            }
+
+            .main-container {
+                margin-left: 0;
+                width: 100%;
+            }
+
+            .table-card {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid var(--border-gray);
+            }
+        }
         }
         """
 
@@ -2714,6 +2879,11 @@ class DashboardGenerator:
         }};
         const projectsCount = {projects_count_json};
         const projectsCountEmpreendimentos = {projects_count_empreendimentos_json};
+        
+        // 🎯 CORREÇÃO DEFINITIVA: Dados de lançamentos pré-processados
+        // Estes dados substituem calculateUniqueProjectsPeriodAggregations
+        const launchesPreprocessed = {launches_preprocessed_json};
+        window.launchesPreprocessed = launchesPreprocessed;  // Disponível globalmente
 
         // 🔍 Dados de Insights (SELIC, IPCA, Juros Reais, INCC)
         // Estas séries são utilizadas na view "Insights" para montar os cartões de indicadores econômicos
@@ -5282,80 +5452,144 @@ class DashboardGenerator:
         }
 
         function calculateUniqueProjectsPeriodAggregations(data, ofertaTypes) {
+            // CORREÇÃO DEFINITIVA v3.0: Replicar EXATAMENTE a lógica do Python
+            // Incluindo ordenação por período e keep='first' do drop_duplicates
+            
+            // 1. Calcular dados mensais corretos (já deduplicados por mês)
             const monthly = calculateUniqueProjects(data, ofertaTypes);
             
             if (Object.keys(monthly).length === 0) {
                 return { monthly: {}, quarterly: {}, yearly: {} };
             }
             
-            // Função de limpeza (duplicada para consistência)
-            function cleanProjectName(name) {
-                if (!name || name === 'N/A') return name;
+            // 2. FUNÇÃO DE NORMALIZAÇÃO: Replicar extract_empreendimento_name do Python
+            function normalizeEmpreendimentoName(name) {
+                if (!name || name === 'N/A') return 'N/A';
                 
-                let cleaned = String(name).trim();
+                let normalized = String(name).trim().toUpperCase();
                 
-                const suffixes = [
-                    / BL [A-Z] COBERTURA$/i, / BL [A-Z] GARDEN DUPLEX$/i, / BL [A-Z] GARDEN$/i,
-                    / BL [A-Z] LOFT$/i, / BL [A-Z] DUPLEX$/i, / BL [A-Z] STUDIO$/i,
-                    / BL [A-Z]$/i, / BLOCO [A-Z]$/i, / TORRE [A-Z]$/i, / TOWER [A-Z]$/i,
-                    / BL \d+$/i, / BLOCO \d+$/i, / TORRE \d+$/i, / TOWER \d+$/i,
-                    / COBERTURA$/i, / GARDEN$/i, / DUPLEX$/i, / STUDIO$/i, / LOFT$/i,
-                    / 2 SUÍTES$/i, / 3 SUÍTES$/i, / 1 SUÍTE$/i
+                // Correções ortográficas críticas (do Python)
+                normalized = normalized
+                    .replace(/EMPPREENDIMENTO/gi, 'EMPREENDIMENTO')
+                    .replace(/EMPREEENDIMENTO/gi, 'EMPREENDIMENTO')
+                    .replace(/EMPRENDIMENTO/gi, 'EMPREENDIMENTO');
+                
+                // Remoção de prefixos genéricos (do Python)
+                normalized = normalized
+                    .replace(/^EMPREENDIMENTO\s+/i, '')
+                    .replace(/^RESIDENCIAL\s+/i, '')
+                    .replace(/^RES\s+/i, '')
+                    .trim();
+                
+                // Patterns de normalização do Python
+                const patternsToRemove = [
+                    /\s+BL\s+[A-Z0-9]+/gi,
+                    /\s+BLOCO\s+[A-Z0-9]+/gi,
+                    /\s+TORRE\s+[A-Z0-9]+/gi,
+                    /\s+TIPO\b/gi,
+                    /\s+APTO\s+[A-Z0-9]+/gi,
+                    /\s+APT\s+[A-Z0-9]+/gi,
+                    /\s+APARTAMENTO\s+[A-Z0-9]+/gi,
+                    /\s+SALA\s+[A-Z0-9]+/gi,
+                    /\s+LOJA\s+[A-Z0-9]+/gi,
+                    /\s+COBERTURA\b/gi,
+                    /\s+GARDEN\b/gi,
+                    /\s+DUPLEX\b/gi,
+                    /\s+TRIPLEX\b/gi,
+                    /\s+[0-9]+Q\b/gi,
+                    /\s+[0-9]+\s+QUARTOS?/gi,
+                    /\s+COM\s+TERRAÇO/gi,
+                    /\s+STUDIO\b/gi,
+                    /\s+LOFT\b/gi,
+                    /\s+[0-9]+\s+SUÍTES?\b/gi
                 ];
                 
-                for (let suffix of suffixes) {
-                    cleaned = cleaned.replace(suffix, '');
+                // Aplicar remoção de padrões
+                for (let pattern of patternsToRemove) {
+                    normalized = normalized.replace(pattern, '').trim();
                 }
                 
-                return cleaned.trim();
+                return normalized || 'N/A';
             }
             
-            const projectsByQuarter = {};
-            const projectsByYear = {};
+            // 3. REPLICAR EXATAMENTE A LÓGICA Python get_projects_details()
             
-            data.forEach(function(row) {
-                if (!ofertaTypes.includes(row.OFERTA_VENDA)) return;
-                if (!row.ANO_MES || !row.QUANTIDADE || row.QUANTIDADE <= 0) return;
-                
-                const period = parseInt(row.ANO_MES);
-                const year = Math.floor(period / 100);
-                const month = period % 100;
-                const quarter = Math.ceil(month / 3);
-                
-                const quarterKey = year + '_' + quarter + 'T';
-                const yearKey = year.toString();
-                
-                if (!projectsByQuarter[quarterKey]) projectsByQuarter[quarterKey] = new Set();
-                if (!projectsByYear[yearKey]) projectsByYear[yearKey] = new Set();
-                
-                // CORREÇÃO: Usar nome limpo
-                const empRaw = row.EMPREENDIMENTO || 'N/A';
-                const empCleaned = cleanProjectName(empRaw);
+            // 3a. Filtrar dados relevantes
+            const filteredData = data.filter(function(row) {
+                return ofertaTypes.includes(row.OFERTA_VENDA) && 
+                       row.ANO_MES && 
+                       row.QUANTIDADE && 
+                       row.QUANTIDADE > 0;
+            });
+            
+            // 3b. CRUCIAL: ORDENAR POR PERÍODO (como Python: sort_values(period_col))
+            filteredData.sort(function(a, b) {
+                return parseInt(a.ANO_MES) - parseInt(b.ANO_MES);
+            });
+            
+            // 3c. Processar cada linha com normalização
+            const processedData = filteredData.map(function(row) {
+                const empNormalized = normalizeEmpreendimentoName(row.EMPREENDIMENTO || 'N/A');
                 const empresa = row.EMPRESA || 'N/A';
                 const bairro = row.BAIRRO || 'N/A';
-                const projectKey = empCleaned + '|' + empresa + '|' + bairro;
+                const period = parseInt(row.ANO_MES);
+                const year = Math.floor(period / 100);
                 
-                if (projectKey !== 'N/A|N/A|N/A' && projectKey.indexOf('N/A|') === -1) {
-                    projectsByQuarter[quarterKey].add(projectKey);
-                    projectsByYear[yearKey].add(projectKey);
+                return {
+                    period: period,
+                    year: year,
+                    empNormalized: empNormalized,
+                    empresa: empresa,
+                    bairro: bairro,
+                    projectKey: empNormalized + '|' + empresa + '|' + bairro
+                };
+            });
+            
+            // 3d. REPLICAR drop_duplicates com keep='first' POR ANO
+            // O Python usa: drop_duplicates(subset=['ANO', 'EMPREENDIMENTO_AGRUPADO', 'EMPRESA', 'BAIRRO'], keep='first')
+            const seenByYear = {};
+            const uniqueProjects = [];
+            
+            processedData.forEach(function(row) {
+                if (row.empNormalized === 'N/A' || row.empresa === 'N/A' || row.bairro === 'N/A') {
+                    return; // Skip N/A values
+                }
+                
+                const yearKey = row.year.toString();
+                if (!seenByYear[yearKey]) {
+                    seenByYear[yearKey] = new Set();
+                }
+                
+                // Chave única por ano: ANO + EMPREENDIMENTO_AGRUPADO + EMPRESA + BAIRRO
+                const annualKey = yearKey + '|' + row.projectKey;
+                
+                // keep='first': apenas se não foi visto antes neste ano
+                if (!seenByYear[yearKey].has(row.projectKey)) {
+                    seenByYear[yearKey].add(row.projectKey);
+                    uniqueProjects.push(row);
                 }
             });
             
-            const quarterly = {};
-            const yearly = {};
+            // 4. Agrupar por ano e trimestre (após deduplicação)
+            const projectsByYear = {};
+            const projectsByQuarter = {};
             
-            Object.keys(projectsByQuarter).forEach(function(key) {
-                quarterly[key] = projectsByQuarter[key].size;
-            });
-            
-            Object.keys(projectsByYear).forEach(function(key) {
-                yearly[key] = projectsByYear[key].size;
+            uniqueProjects.forEach(function(row) {
+                const yearKey = row.year.toString();
+                const quarter = Math.ceil((row.period % 100) / 3);
+                const quarterKey = row.year + '_' + quarter + 'T';
+                
+                if (!projectsByYear[yearKey]) projectsByYear[yearKey] = 0;
+                if (!projectsByQuarter[quarterKey]) projectsByQuarter[quarterKey] = 0;
+                
+                projectsByYear[yearKey]++;
+                projectsByQuarter[quarterKey]++;
             });
             
             return {
                 monthly: monthly,
-                quarterly: quarterly,
-                yearly: yearly
+                quarterly: projectsByQuarter,
+                yearly: projectsByYear
             };
         }
 
@@ -6903,7 +7137,12 @@ class DashboardGenerator:
             const ofertasPeriods = calculatePeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
             const vendasPeriods = calculatePeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const lancamentosPeriods = calculatePeriodAggregations(data, ['OFERTADOS LANCAMENTOS'], false);
-            const lancamentosProjectsPeriods = calculateUniqueProjectsPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']);
+            
+            // 🎯 CORREÇÃO DEFINITIVA: Usar dados pré-processados em vez de recalcular
+            // Garante mesma interpretação semântica do TXT
+            const lancamentosProjectsPeriods = window.launchesPreprocessed && window.launchesPreprocessed[currentView] 
+                ? window.launchesPreprocessed[currentView]
+                : calculateUniqueProjectsPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']); // fallback
             
             // Novos cálculos
             const ofertaAreaPeriods = calculateAreaPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
@@ -7566,25 +7805,25 @@ function applyTrendColorsQuarterly() {
                             shouldShow = title.includes('ivv');
                             break;
                         case 'oferta':
-                            shouldShow = title.includes('oferta') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço');
+                            shouldShow = title.includes('oferta') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço') && !title.includes('vgv');
                             break;
                         case 'venda':
-                            shouldShow = title.includes('venda') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço');
+                            shouldShow = title.includes('venda') && !title.includes('m²') && !title.includes('valor') && !title.includes('preço') && !title.includes('vgv');
                             break;
                         case 'lancamentos':
                             shouldShow = title.includes('lanç') || title.includes('lanc');
                             break;
                         case 'oferta_m2':
-                            shouldShow = title.includes('oferta') && title.includes('m²') && !title.includes('valor') && !title.includes('preço');
+                            shouldShow = title.includes('oferta') && title.includes('m²') && !title.includes('valor') && !title.includes('preço') && !title.includes('vgv');
                             break;
                         case 'venda_m2':
-                            shouldShow = title.includes('venda') && title.includes('m²') && !title.includes('valor') && !title.includes('preço');
+                            shouldShow = title.includes('venda') && title.includes('m²') && !title.includes('valor') && !title.includes('preço') && !title.includes('vgv');
                             break;
                         case 'valor_ponderado_oferta':
-                            shouldShow = (title.includes('oferta') && title.includes('preço')) || (title.includes('oferta') && title.includes('valor'));
+                            shouldShow = ((title.includes('oferta') && title.includes('preço')) || (title.includes('oferta') && title.includes('valor'))) && !title.includes('vgv');
                             break;
                         case 'valor_ponderado_venda':
-                            shouldShow = (title.includes('venda') && title.includes('preço')) || (title.includes('venda') && title.includes('valor'));
+                            shouldShow = ((title.includes('venda') && title.includes('preço')) || (title.includes('venda') && title.includes('valor'))) && !title.includes('vgv');
                             break;
                         case 'vgl':
                             shouldShow = title.includes('vgl');
