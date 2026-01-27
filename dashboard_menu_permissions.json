@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-25T10:51:44.442250",
+  "generated_at": "2026-01-27T11:28:21.794452",
   "dashboard_version": "gerador_dashboard.py",
   "menu_permissions": {
     "admin": {
@@ -35,6 +35,10 @@
         "ivv_por_regiao",
         "oferta_quantidade",
         "venda_quantidade",
+        "valor_ponderado_oferta",
+        "valor_ponderado_venda",
+        "oferta_m2",
+        "venda_m2",
         "gastos_pos_entrega",
         "gastos_por_categoria"
       ],
@@ -76,6 +80,10 @@
         "ivv_por_regiao",
         "oferta_quantidade",
         "venda_quantidade",
+        "valor_ponderado_oferta",
+        "valor_ponderado_venda",
+        "oferta_m2",
+        "venda_m2",
         "gastos_pos_entrega",
         "gastos_por_categoria"
       ],
@@ -135,6 +143,6 @@
     "valid": true,
     "warnings": [],
     "total_categories": 35,
-    "admin_permissions": 31
+    "admin_permissions": 35
   }
 }
