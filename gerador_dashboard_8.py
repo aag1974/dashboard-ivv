@@ -7138,13 +7138,10 @@ class DashboardGenerator:
             const vendasPeriods = calculatePeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const lancamentosPeriods = calculatePeriodAggregations(data, ['OFERTADOS LANCAMENTOS'], false);
             
-            // 🔄 Calcular quantidade de empreendimentos com base nos dados filtrados
-            // A contagem de empreendimentos precisa refletir os filtros aplicados,
-            // portanto não usamos mais os dados pré-processados (que são estáticos).
-            const lancamentosProjectsPeriods = calculateUniqueProjectsPeriodAggregations(
-                data,
-                ['OFERTADOS LANCAMENTOS']
-            );
+            // 🎯 CORREÇÃO: recalcular sempre os empreendimentos usando o dataset filtrado
+            // Em vez de usar os dados pré-processados (que não respeitam filtros),
+            // calcular os empreendimentos (projetos únicos) a partir do dataset filtrado.
+            const lancamentosProjectsPeriods = calculateUniqueProjectsPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']);
             
             // Novos cálculos
             const ofertaAreaPeriods = calculateAreaPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
@@ -9963,13 +9960,38 @@ function exportAllTablesToXLSX(tipoImovel) {
                 }
             }
         });
-        // Converter a tabela clonada para um array de arrays preservando o texto conforme exibido,
-        // para manter a formatação brasileira (vírgula como separador decimal e ponto como separador de milhares).
+        // Converter a tabela clonada para um array de arrays, removendo sinais positivos e
+        // convertendo números brasileiros (incluindo percentuais) para valores numéricos nativos.
+        // Isso garante que valores numéricos sejam interpretados corretamente no Excel e que
+        // variações positivas não tenham o sinal "+".
         const rows = [];
         tableClone.querySelectorAll('tr').forEach(function(trEl) {
             const rowArr = [];
             trEl.querySelectorAll('th, td').forEach(function(cellEl) {
-                rowArr.push(cellEl.innerText.trim());
+                let text = cellEl.innerText.trim();
+                // Remover o sinal "+" no início (caso exista). Mantém o sinal negativo.
+                if (text.startsWith('+')) {
+                    text = text.substring(1).trim();
+                }
+                // Verificar se o conteúdo parece ser um número brasileiro (com milhares/decimais) ou percentual.
+                // Padrão: número opcionalmente negativo, com separadores de milhares (ponto), separador decimal (vírgula) e símbolo de porcentagem.
+                const numPattern = /^-?(?:\d{1,3}(?:\.\d{3})*|\d+)(?:,\d+)?%?$/;
+                if (numPattern.test(text)) {
+                    const isPercent = text.includes('%');
+                    // Remover separadores de milhares e trocar vírgula por ponto decimal
+                    let numericStr = text.replace(/\./g, '').replace(',', '.').replace('%', '');
+                    let num = parseFloat(numericStr);
+                    if (!isNaN(num)) {
+                        // Se for percentual, dividir por 100
+                        if (isPercent) num = num / 100;
+                        rowArr.push(num);
+                    } else {
+                        // Fallback para texto se a conversão falhar
+                        rowArr.push(text);
+                    }
+                } else {
+                    rowArr.push(text);
+                }
             });
             rows.push(rowArr);
         });
@@ -9979,7 +10001,8 @@ function exportAllTablesToXLSX(tipoImovel) {
         const incNode = Array.from(card.querySelectorAll('div, span, small, em')).find(function(el) {
             return /incomplet/i.test(el.textContent);
         });
-        const variationText = varEl ? varEl.innerText.trim() : '';
+        // Remover sinais positivos do texto de variações antes de exportar
+        const variationText = varEl ? varEl.innerText.trim().replace(/\+/g, '') : '';
         const incompleteText = incNode ? incNode.textContent.trim() : '';
         if (variationText || incompleteText) {
             const range = XLSX.utils.decode_range(ws['!ref']);
