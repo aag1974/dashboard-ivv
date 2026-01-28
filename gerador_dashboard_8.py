@@ -7138,11 +7138,13 @@ class DashboardGenerator:
             const vendasPeriods = calculatePeriodAggregations(data, ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'], false);
             const lancamentosPeriods = calculatePeriodAggregations(data, ['OFERTADOS LANCAMENTOS'], false);
             
-            // 🎯 CORREÇÃO DEFINITIVA: Usar dados pré-processados em vez de recalcular
-            // Garante mesma interpretação semântica do TXT
-            const lancamentosProjectsPeriods = window.launchesPreprocessed && window.launchesPreprocessed[currentView] 
-                ? window.launchesPreprocessed[currentView]
-                : calculateUniqueProjectsPeriodAggregations(data, ['OFERTADOS LANCAMENTOS']); // fallback
+            // 🔄 Calcular quantidade de empreendimentos com base nos dados filtrados
+            // A contagem de empreendimentos precisa refletir os filtros aplicados,
+            // portanto não usamos mais os dados pré-processados (que são estáticos).
+            const lancamentosProjectsPeriods = calculateUniqueProjectsPeriodAggregations(
+                data,
+                ['OFERTADOS LANCAMENTOS']
+            );
             
             // Novos cálculos
             const ofertaAreaPeriods = calculateAreaPeriodAggregations(data, ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'], true);
