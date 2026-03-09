@@ -164,3 +164,10 @@ Empreendimentos Lançados:
   - 12 | DIRECIONAL INCORPORAÇÕES | Santa Maria | TOTAL VILLE CONVIVER 2
   - 12 | FAENGE FIGUEIREDO AVILA ENGENHARIA LTDA | Park Sul | FIKEY PARK SUL
 
+Ano: 2026
+Total lançamentos: 2
+Empreendimentos Lançados:
+
+  - 01 | DIRECIONAL INCORPORAÇÕES | Samambaia | SINGULARE HOME RIVA
+  - 01 | EBM DESENVOLVIMENTO URBANO E INCORP SA | Ceilândia | NOW 29
+
