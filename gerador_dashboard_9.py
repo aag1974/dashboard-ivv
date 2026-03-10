@@ -1200,6 +1200,55 @@ class DashboardGenerator:
 
         return df_json.to_dict('records')
 
+    def compute_crosstabs_empreendimentos(self, df_res: pd.DataFrame, df_com: pd.DataFrame) -> dict:
+        """
+        Pré-computa contagem de empreendimentos únicos lançados por período × bairro × quartos.
+        Usa dados ANTES da anonimização para garantir contagem correta.
+        Estrutura: { "residencial": {periodo: {bairro: {quartos: count}}}, "comercial": {...} }
+        """
+        import numpy as np
+
+        def process(df):
+            result = {}
+            if df is None or df.empty:
+                return result
+            emp_col = 'EMPREENDIMENTO_AGRUPADO' if 'EMPREENDIMENTO_AGRUPADO' in df.columns else 'EMPREENDIMENTO'
+            launches = df[df['OFERTA_VENDA'] == 'OFERTADOS LANCAMENTOS'].copy()
+            if launches.empty:
+                return result
+            for period in launches['ANO_MES'].dropna().unique():
+                try:
+                    period_key = str(int(period))
+                except Exception:
+                    continue
+                period_data = launches[launches['ANO_MES'] == period]
+                result[period_key] = {}
+                for bairro in period_data['BAIRRO'].unique():
+                    if not bairro or str(bairro) == 'nan':
+                        continue
+                    b_data = period_data[period_data['BAIRRO'] == bairro]
+                    result[period_key][bairro] = {}
+                    for quartos_val in b_data['QTD_QUARTOS'].unique():
+                        # Replicar lógica JS: nulo/''/nan → '', >=4 → '4+'
+                        if quartos_val is None or (isinstance(quartos_val, float) and np.isnan(quartos_val)) or str(quartos_val).strip() == '':
+                            q_str = ''
+                        else:
+                            try:
+                                num = int(quartos_val)
+                                q_str = '4+' if num >= 4 else str(num)
+                            except Exception:
+                                q_str = str(quartos_val)
+                        q_data = b_data[b_data['QTD_QUARTOS'] == quartos_val]
+                        count = int(q_data[emp_col].nunique()) if emp_col in q_data.columns else 0
+                        existing = result[period_key][bairro].get(q_str, 0)
+                        result[period_key][bairro][q_str] = existing + count
+            return result
+
+        return {
+            "residencial": process(df_res),
+            "comercial": process(df_com)
+        }
+
     def prepare_crosstabs_data_for_json(self, df: pd.DataFrame) -> List[Dict]:
         """
         Prepara DataFrame especificamente para crosstabs com controle de acesso.
@@ -1318,6 +1367,11 @@ class DashboardGenerator:
         # 🔹 Dados para crosstabs (com todas as colunas necessárias)
         residential_crosstabs_json = json.dumps(self.prepare_crosstabs_data_for_json(self.residential_data), ensure_ascii=False)
         commercial_crosstabs_json = json.dumps(self.prepare_crosstabs_data_for_json(self.commercial_data), ensure_ascii=False)
+        # Empreendimentos lançados por período × bairro × quartos (pré-anonimização)
+        crosstabs_empreendimentos_json = json.dumps(
+            self.compute_crosstabs_empreendimentos(self.residential_data, self.commercial_data),
+            ensure_ascii=False
+        )
         # 🔹 Contagem de lançamentos (para o dashboard)
                 # 🔹 CORRIGIDO: Usar contagens separadas de unidades e empreendimentos
         residential_counts = self.launch_manager.get_public_launch_counts(self.residential_data)
@@ -1460,7 +1514,8 @@ class DashboardGenerator:
             launches_preprocessed_json,  # 🎯 CORREÇÃO DEFINITIVA: Dados pré-processados
             residential_crosstabs_json,  # Dados específicos para crosstabs
             commercial_crosstabs_json,   # Dados específicos para crosstabs
-            menu_config_json          # 🔐 NOVO: Configurações de menu
+            menu_config_json,         # 🔐 NOVO: Configurações de menu
+            crosstabs_empreendimentos_json   # Empreendimentos lançados por região×quartos×período
         )
         
         return html_template
@@ -1480,6 +1535,7 @@ class DashboardGenerator:
         residential_crosstabs_json,  
         commercial_crosstabs_json,
         menu_config_json,
+        crosstabs_empreendimentos_json="{}",  # Empreendimentos lançados por região×quartos×período
         js_content="",   
         css_styles="", 
         html_body=""
@@ -2152,6 +2208,32 @@ class DashboardGenerator:
             color: var(--text-dark);
         }
 
+        /* Tabelas mensais e trimestrais — limitar primeira coluna (Jan, Fev, 1T, 2T...) */
+        .quarterly-table th:first-child,
+        .quarterly-table td:first-child,
+        .monthly-money-table th:first-child,
+        .monthly-money-table td:first-child {
+            min-width: 60px;
+            max-width: 80px;
+            width: 70px;
+        }
+
+        /* Tabela anual — coluna "Ano" */
+        .yearly-table th:first-child,
+        .yearly-table td:first-child {
+            min-width: 60px;
+            max-width: 80px;
+            width: 70px;
+        }
+
+        /* Tabelas crosstab — coluna "Região" com largura uniforme */
+        .cross-table th:first-child,
+        .cross-table td:first-child {
+            min-width: 110px;
+            max-width: 140px;
+            width: 120px;
+        }
+
         .data-table tbody tr:hover {
             background-color: var(--light-gray);
         }
@@ -2346,180 +2428,413 @@ class DashboardGenerator:
             border-top: 1px solid var(--border-gray);
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             margin-top: 40px;
-            z-index: 10000;
+            z-index: 1;
+        }
+
+        /* ==================== MOBILE TOP BAR ==================== */
+        .mobile-topbar {
+            display: none;
+        }
+
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 1999;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+
+        .mobile-overlay.active {
+            display: block;
+        }
+
+        .mobile-bottom-nav {
+            display: none;
         }
 
         /* ==================== RESPONSIVE DESIGN ==================== */
         @media (max-width: 768px) {
+
+            /* ---- Variáveis mobile ---- */
             :root {
-                --sidebar-width: 100%;
-                --sidebar-collapsed: 60px;
-                --spacing-lg: 15px;
-                --spacing-md: 12px;
+                --mobile-topbar-height: 56px;
+                --mobile-filter-bar-height: 52px;
             }
 
+            /* ---- Reset base ---- */
             body {
-                padding: var(--spacing-md);
+                padding: 0;
+                background: #F0F4F8;
             }
 
-            .dashboard-container {
-                padding: var(--spacing-md) !important;
-                padding-bottom: 100px !important;
+            /* ---- Top Bar ---- */
+            .mobile-topbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                position: fixed;
+                top: 0; left: 0; right: 0;
+                height: var(--mobile-topbar-height);
+                background: var(--primary-blue);
+                z-index: 2500;
+                padding: 0 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             }
-            
-            .header {
+
+            .mobile-topbar-left {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .mobile-hamburger {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 6px;
+                border-radius: 6px;
+                display: flex;
                 flex-direction: column;
-                padding: var(--spacing-md);
-                margin-bottom: var(--spacing-md);
-            }
-            
-            .logo-container {
-                margin-bottom: var(--spacing-sm);
-            }
-            
-            .logo-container img {
-                height: 60px;
-                width: auto;
+                gap: 5px;
+                transition: background var(--transition-fast);
             }
 
-            .header h1 {
-                font-size: 1.2rem;
-                margin-bottom: var(--spacing-sm);
+            .mobile-hamburger:active {
+                background: rgba(255,255,255,0.15);
             }
-            
-            .view-toggle {
+
+            .mobile-hamburger span {
+                display: block;
+                width: 22px;
+                height: 2px;
+                background: #fff;
+                border-radius: 2px;
+                transition: all var(--transition-normal);
+            }
+
+            .mobile-hamburger.open span:nth-child(1) {
+                transform: translateY(7px) rotate(45deg);
+            }
+            .mobile-hamburger.open span:nth-child(2) {
+                opacity: 0;
+                transform: scaleX(0);
+            }
+            .mobile-hamburger.open span:nth-child(3) {
+                transform: translateY(-7px) rotate(-45deg);
+            }
+
+            .mobile-topbar-logo {
+                height: 32px;
+                width: auto;
+                filter: brightness(0) invert(1);
+                object-fit: contain;
+            }
+
+            .mobile-topbar-title {
+                font-size: 14px;
+                font-weight: 700;
+                color: #fff;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+            }
+
+            .mobile-topbar-right {
+                display: flex;
+                align-items: center;
                 gap: 8px;
             }
-            
-            .view-btn {
-                padding: 8px 16px;
-                font-size: 13px;
+
+            .mobile-filter-toggle {
+                background: rgba(255,255,255,0.2);
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                color: #fff;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 6px 10px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                transition: background var(--transition-fast);
             }
-            
+
+            .mobile-filter-toggle:active {
+                background: rgba(255,255,255,0.35);
+            }
+
+            .mobile-filter-toggle .filter-icon {
+                font-size: 14px;
+            }
+
+            /* Ocultar botão retrátil no mobile (desnecessário com o drawer) */
+            .sidebar-toggle {
+                display: none;
+            }
+
+            /* ---- Sidebar como drawer ---- */
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                top: 0;
+                width: 280px;
+                z-index: 3000;
+                height: 100vh;
+                overflow-y: auto;
+                padding-bottom: 20px;
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+                box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+            }
+
+            /* ---- Overlay ---- */
+            .mobile-overlay {
+                display: none;
+            }
+
+            .mobile-overlay.active {
+                display: block;
+            }
+
+            /* ---- Main container ---- */
+            .main-container {
+                margin-left: 0 !important;
+                width: 100% !important;
+                padding-top: var(--mobile-topbar-height);
+                padding-bottom: 0;
+            }
+
+            /* ---- Filters container (mobile) ---- */
             .filters-container {
-                padding: 12px var(--spacing-md);
-                margin-bottom: 0;
-                position: relative;
-                padding-left: var(--spacing-md);
-                width: 100%;
+                position: fixed;
+                top: var(--mobile-topbar-height);
                 left: 0;
                 right: 0;
+                width: 100%;
+                padding: 0;
+                padding-left: 0 !important;
+                z-index: 1500;
+                background: var(--white);
+                border-bottom: 2px solid var(--primary-blue);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             }
-            
+
+            .filters-container.mobile-filters-open {
+                max-height: 100vh;
+                overflow: visible;
+            }
+
+            /* Dropdown no mobile: posição absolute normal, mas z-index alto para sobrepor conteúdo */
+            .filters-container.mobile-filters-open .dropdown-content {
+                position: absolute;
+                z-index: 9999;
+                max-height: 45vh;
+                overflow-y: auto;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            }
+
+            .filters-container-inner {
+                padding: 14px 16px 16px;
+            }
+
             .filters-header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: var(--spacing-sm);
-                margin-bottom: var(--spacing-sm);
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
             }
-            
+
+            .filter-title {
+                font-size: 13px;
+            }
+
             .filters-grid {
                 flex-direction: column;
-                gap: var(--spacing-md);
+                gap: 10px;
                 align-items: stretch;
+                margin-bottom: 10px;
             }
-            
+
+            .filter-group {
+                min-width: 0;
+                width: 100%;
+            }
+
             .filter-actions {
+                justify-content: stretch;
+                gap: 6px;
+                flex-wrap: nowrap;
+            }
+
+            .filter-btn {
+                flex: 1;
+                padding: 8px 4px;
+                font-size: 13px;
+                font-weight: 700;
+                text-align: center;
+                line-height: 1;
+                min-width: 0;
+                white-space: nowrap;
+                border-radius: var(--border-radius-sm);
+                display: flex;
+                align-items: center;
                 justify-content: center;
             }
-            
-            .filter-btn {
-                padding: 9px 18px;
-                font-size: 12px;
-            }
-            
+
+            /* ---- Tabelas com scroll horizontal ---- */
             .table-card {
-                padding: var(--spacing-md);
+                padding: 12px;
+                margin-bottom: 12px;
+                overflow-x: visible;
+                border-radius: 8px;
+            }
+
+            .table-scroll-wrapper {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
-                margin-bottom: var(--spacing-md);
+                width: 100%;
             }
 
             .data-table {
                 font-size: 10px;
-                min-width: 650px;
-                border-collapse: collapse;
-                width: 100%;
+                min-width: 580px;
+                border-collapse: separate;
+                border-spacing: 0;
             }
 
             .data-table th,
             .data-table td {
-                padding: 6px 4px;
-                text-align: left;
+                padding: 5px 4px;
                 white-space: nowrap;
                 height: 14px;
                 line-height: 14px;
                 vertical-align: middle;
             }
 
-            /* INSIGHTS MOBILE */
+            /* Primeira coluna travada no scroll horizontal */
+            .data-table th:first-child,
+            .data-table td:first-child {
+                position: sticky;
+                left: 0;
+                z-index: 10;
+                background-color: #ffffff !important;
+                border-right: 2px solid #cccccc;
+                box-shadow: 3px 0 6px rgba(0,0,0,0.12);
+                will-change: transform;
+                isolation: isolate;
+            }
+
+            /* Largura fixa apenas para tabelas com conteúdo curto (mês, trimestre, ano) */
+            .quarterly-table th:first-child,
+            .quarterly-table td:first-child,
+            .monthly-money-table th:first-child,
+            .monthly-money-table td:first-child,
+            .yearly-table th:first-child,
+            .yearly-table td:first-child {
+                min-width: 60px;
+                max-width: 80px;
+                width: 70px;
+            }
+
+            /* Crosstab — coluna Região fixa e uniforme no mobile */
+            .cross-table th:first-child,
+            .cross-table td:first-child {
+                min-width: 110px;
+                max-width: 140px;
+                width: 120px;
+            }
+
+            .data-table th:first-child {
+                background-color: #f8f9fa !important;
+                z-index: 11;
+                will-change: transform;
+            }
+
+            /* Manter cor de hover e linhas zebradas na coluna sticky */
+            .data-table tbody tr:hover td:first-child {
+                background-color: #f0f4f8 !important;
+            }
+
+            .variation-row td:first-child {
+                background-color: #f8f9fa !important;
+            }
+
+            /* Neutralizar z-index dos divs internos das células que rolam,
+               para não vazarem por cima da primeira coluna sticky */
+            .data-table td:not(:first-child) > div[style*="position: relative"] {
+                z-index: auto !important;
+            }
+            .data-table td:not(:first-child) > div > div[style*="z-index"] {
+                z-index: auto !important;
+            }
+
+            /* ---- Insights mobile ---- */
             .insights-container {
                 gap: 12px;
             }
-            
+
             .insight-card {
                 padding: 12px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .insight-title {
                 font-size: 14px;
                 margin-bottom: 6px;
             }
-            
+
             .insight-description {
                 font-size: 11px;
                 margin-bottom: 12px;
             }
-            
+
             .insight-metrics {
-                grid-template-columns: 1fr;
-                gap: var(--spacing-sm);
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
             }
-            
+
             .metric-box {
-                padding: var(--spacing-sm);
+                padding: 8px;
                 gap: 3px;
             }
-            
+
             .metric-label {
                 font-size: 9px;
             }
-            
+
             .metric-value {
                 font-size: 18px;
             }
-            
+
             .metric-period {
                 font-size: 8px;
             }
-            
+
             .insight-note {
                 font-size: 9px;
                 margin-top: 8px;
                 padding-top: 8px;
             }
-            
+
             .chart-wrapper {
-                min-width: 600px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
                 margin: 12px 0;
+                width: 100%;
             }
 
             .chart-wrapper canvas {
-                width: 100% !important;
+                min-width: 320px;
                 height: auto !important;
-                max-height: 250px;
-            }
-
-            .insight-card .data-table {
-                font-size: 10px;
-                min-width: 650px;
-            }
-
-            .insight-card .data-table th,
-            .insight-card .data-table td {
-                padding: 6px 4px;
+                max-height: 300px;
             }
 
             .insight-card table {
@@ -2529,35 +2844,27 @@ class DashboardGenerator:
                 white-space: nowrap;
             }
 
-            .insight-card .chart-wrapper {
-                min-width: 600px;
-                margin: 12px 0;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+            .insight-card .data-table {
+                font-size: 10px;
+                min-width: 580px;
             }
-            
+
+            /* ---- dashboard-container e tablesContainer ---- */
+            .dashboard-container {
+                padding: 0 !important;
+            }
+
+            #tablesContainer,
+            #crossTablesContainer {
+                padding: 12px 10px;
+            }
+
+            /* ---- Footer ---- */
             .footer {
                 font-size: 10px;
-                padding: var(--spacing-sm);
-            }
-
-            /* Sidebar mobile */
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform var(--transition-normal);
-            }
-
-            .sidebar.mobile-open {
-                transform: translateX(0);
-            }
-
-            .main-container {
-                margin-left: 0;
-                width: 100%;
-            }
-
-            .filters-container {
-                padding-left: var(--spacing-md);
+                padding: 10px var(--spacing-sm);
+                text-align: center;
+                margin-bottom: 0;
             }
         }
 
@@ -2621,6 +2928,27 @@ class DashboardGenerator:
 
         # HTML body content
         html_body = f"""
+<!-- 🔹 Mobile Top Bar -->
+<div class="mobile-topbar" id="mobileTopbar">
+    <div class="mobile-topbar-left">
+        <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileSidebar()" aria-label="Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+        <img src="https://raw.githubusercontent.com/aag1974/dashboard-ivv/main/logo.png" alt="Logo" class="mobile-topbar-logo" />
+        <span class="mobile-topbar-title">IVV</span>
+    </div>
+    <div class="mobile-topbar-right">
+        <button class="mobile-filter-toggle" id="mobileFilterToggle" onclick="toggleMobileFilters()" aria-label="Filtros">
+            <span class="filter-icon">⚙</span> Filtros
+        </button>
+    </div>
+</div>
+
+<!-- 🔹 Mobile Overlay -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+
 <!-- 🔹 Dashboard -->
 <div id="dashboardContainer" style="display: block;">
     <div class="sidebar" id="sidebar">
@@ -2684,15 +3012,15 @@ class DashboardGenerator:
         <div class="sidebar-toggle" onclick="toggleSidebar()">⇔</div>
     </div>
     <div class="main-container" id="mainContainer">
-        <div class="filters-container">
+        <div class="filters-container" id="filtersContainer">
+            <div class="filters-container-inner">
             <div class="filters-header">
                 <h2 class="filter-title">FILTROS DE SELEÇÃO</h2>
                     <div class="filter-actions">
-                    <button class="filter-btn apply-btn" onclick="applyFilters()">Aplicar Filtros</button>
-                    <button class="filter-btn clear-btn" onclick="clearFilters()">Limpar Filtros</button>
-                    <!-- Botões de exportação (PDF/Excel) posicionados ao lado dos filtros -->
-                    <button class="filter-btn export-btn" onclick="exportAllTablesToPDF()">📄 PDF</button>
-                    <button class="filter-btn export-btn" onclick="exportAllTablesToXLSX()">📊 Excel</button>
+                    <button class="filter-btn apply-btn" onclick="applyFilters()" title="Aplicar filtros">✓</button>
+                    <button class="filter-btn clear-btn" onclick="clearFilters()" title="Limpar filtros">✕</button>
+                    <button class="filter-btn export-btn" onclick="exportAllTablesToPDF()" title="Exportar PDF">PDF</button>
+                    <button class="filter-btn export-btn" onclick="exportAllTablesToXLSX()" title="Exportar Excel">XLS</button>
                 </div>
             </div>
             <div class="filters-grid">
@@ -2832,6 +3160,7 @@ class DashboardGenerator:
                     </div>
                 </div>
             </div>
+            </div>
         </div>
         <div id="tablesContainer"></div>
         <div id="crossTablesContainer" style="display:none;"></div>
@@ -2842,6 +3171,7 @@ class DashboardGenerator:
         </footer>
     </div>
 </div>
+
         """
 
 
@@ -2884,6 +3214,10 @@ class DashboardGenerator:
         // Estes dados substituem calculateUniqueProjectsPeriodAggregations
         const launchesPreprocessed = {launches_preprocessed_json};
         window.launchesPreprocessed = launchesPreprocessed;  // Disponível globalmente
+
+        // Empreendimentos lançados por período × bairro × quartos (pré-computado no Python)
+        const crossTabsEmpreendimentos = {crosstabs_empreendimentos_json};
+        window.crossTabsEmpreendimentos = crossTabsEmpreendimentos;
 
         // 🔍 Dados de Insights (SELIC, IPCA, Juros Reais, INCC)
         // Estas séries são utilizadas na view "Insights" para montar os cartões de indicadores econômicos
@@ -2977,7 +3311,7 @@ class DashboardGenerator:
         const viewCategories = {
             residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
             comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
-            crosstabs: ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
+            crosstabs: ['ivv_por_regiao','oferta_quantidade','venda_quantidade','lancamentos_unidades','lancamentos_empreendimentos','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
             insights: ['indicadores_economicos','correlacoes']
         };
         // Nomes amigáveis para categorias
@@ -3002,17 +3336,19 @@ class DashboardGenerator:
             gastos_por_categoria: 'Gastos Pós-entrega por Categoria',
         };
         
-        // Nomes específicos para crosstabs (incluem "p/ Região")
+        // Nomes específicos para crosstabs (submenus sem "por Região")
         const friendlyNamesCrosstabs = {
-            ivv_por_regiao: 'IVV por Região',
-            oferta_quantidade: 'Ofertas por Região',
-            venda_quantidade: 'Vendas por Região',
-            valor_ponderado_oferta: 'Preço de Oferta p/ Região',
-            valor_ponderado_venda: 'Preço de Venda p/ Região',
-            oferta_m2: 'Oferta em m² p/ Região',
-            venda_m2: 'Venda em m² p/ Região',
-            gastos_pos_entrega: 'Gastos Pós-entrega p/ Região',
-            gastos_por_categoria: 'Gastos p/ Categoria e Região'
+            lancamentos_unidades: 'Unidades Lançadas',
+            lancamentos_empreendimentos: 'Empreendimentos Lançados',
+            ivv_por_regiao: 'IVV',
+            oferta_quantidade: 'Ofertas',
+            venda_quantidade: 'Vendas',
+            valor_ponderado_oferta: 'Preço de Oferta',
+            valor_ponderado_venda: 'Preço de Venda',
+            oferta_m2: 'Oferta em m²',
+            venda_m2: 'Venda em m²',
+            gastos_pos_entrega: 'Gastos Pós-entrega',
+            gastos_por_categoria: 'Gastos por Categoria'
         };
         
         // Função para obter nome amigável baseado na view
@@ -4497,39 +4833,36 @@ class DashboardGenerator:
                   </p>
 
                   <div class="chart-wrapper">
-                    <div style="height:50vh; max-height:400px;">
+                    <div style="height:50vh; max-height:400px; min-width:520px;">
                       <canvas id="economicIndicatorsChart"></canvas>
                     </div>
                   </div>
 
-                  <!-- Rodapé explicativo SEMPRE visível -->
-                  <div id="economicInterpretation"
-                       style="margin-top:15px; padding:12px; background-color:#f8f9fa;
-                              border-left:3px solid #4A90E2; border-radius:4px;
-                              font-size:13px; color:#555; line-height:1.6;">
-                    <strong>Como interpretar:</strong> 
-                    <strong>SELIC</strong> (vermelho) é a taxa básica de juros fixada pelo Banco Central; 
-                    <strong>IPCA 12 meses</strong> (azul) mostra a inflação acumulada nos últimos 12 meses; 
-                    <strong>Juros Reais</strong> (verde) representa a SELIC descontada da inflação (SELIC - IPCA); 
-                    <strong>INCC-M</strong> (roxo) mede a variação de custos na construção civil.
-                    <br><br>
-                    <strong>Análise de correlações:</strong> Selecione uma variável de mercado na legenda para visualizar suas correlações com os indicadores econômicos. 
-                    Juros altos tendem a reduzir demanda por imóveis, enquanto inflação baixa e custos controlados favorecem o setor.
+                  <!-- Nota metodológica -->
+                  <div style="margin-top:15px; padding:12px; background-color:#e8f4fd; border-left:3px solid #2196F3; border-radius:4px; font-size:12px; color:#555; line-height:1.6;">
+                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas, Lançamentos) são normalizadas em <strong>Base 100</strong> (média dos últimos 12 meses = 100) com <strong>Média Móvel de 3 meses</strong>, permitindo comparar tendências entre séries de escalas diferentes.
                   </div>
-                  
-                  <!-- Nota metodológica sobre Base 100 e Média Móvel -->
-                  <div style="margin-top:10px; padding:10px; background-color:#e8f4fd; border-left:3px solid #2196F3; border-radius:4px; font-size:12px; color:#666;">
-                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas , Lançamentos) são apresentadas em <strong>Base 100</strong> (normalização dos últimos 12 meses = 100) 
-                    com <strong>Média Móvel de 3 meses</strong> para suavizar variações sazonais e facilitar a comparação com os indicadores econômicos. 
-                    Esta metodologia permite visualizar tendências de longo prazo e correlações mais claras entre as variáveis.
+
+                  <!-- Rodapé explicativo fixo -->
+                  <div id="economicInterpretation"
+                       style="margin-top:10px; padding:12px; background-color:#f8f9fa;
+                              border-left:3px solid #4A90E2; border-radius:4px;
+                              font-size:13px; color:#555; line-height:1.8;">
+                    <strong>Como interpretar os indicadores</strong><br>
+                    <strong>SELIC</strong> (vermelho) — taxa básica de juros do Banco Central<br>
+                    <strong>IPCA 12 meses</strong> (azul) — inflação acumulada nos últimos 12 meses<br>
+                    <strong>Juros Reais</strong> (verde) — SELIC descontada da inflação (SELIC − IPCA)<br>
+                    <strong>INCC-M</strong> (roxo) — variação de custos na construção civil<br>
+                    <br>
+                    Juros altos tendem a reduzir a demanda por imóveis, enquanto inflação controlada e custos estáveis favorecem o setor.
                   </div>
 
                   <!-- Rodapé DINÂMICO (narrativa de correlação) -->
                   <div id="correlationAnalysis"
-                       style="margin-top:15px; padding:12px; background-color:#f8f9fa;
+                       style="margin-top:10px; padding:12px; background-color:#f8f9fa;
                               border-left:3px solid #A49EE2; border-radius:4px;
                               font-size:13px; color:#555; line-height:1.6;">
-                    <em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>
+                    <em>Selecione uma variável de mercado na legenda do gráfico para visualizar as correlações com os indicadores econômicos.</em>
                   </div>
                 </div>
               `;
@@ -4660,6 +4993,9 @@ class DashboardGenerator:
                 // Função de clique que garante que apenas esta categoria seja ativa
                 li.onclick = function(event) { 
                     console.log('Clique na categoria:', cat);
+                    
+                    // Fechar sidebar mobile ao selecionar item do submenu
+                    closeMobileSidebar();
                     
                     // Scroll to top ao clicar em submenu
                     const mainContainer = document.getElementById('mainContainer');
@@ -4821,37 +5157,24 @@ class DashboardGenerator:
             const bairroGroup = document.getElementById('bairroGroup');
             const periodoGroup = document.getElementById('periodoGroup');
             
-            // INSIGHTS: Apenas Faixa de Valor
+            // INSIGHTS: filtro apenas para correlações — mensagem por padrão (categoria inicial é indicadores_economicos)
             if (view === 'insights') {
-              console.log('Configurando filtros para INSIGHTS - apenas Faixa de Valor');
+              console.log('Configurando filtros para INSIGHTS');
               if (filtersContainer) filtersContainer.style.display = 'block';
-              if (filterActions) filterActions.style.display = 'flex';
-              
-              // Configurar filtros para Insights: APENAS Faixa de Valor
-              if (faixaValorGroup) {
-                faixaValorGroup.style.display = 'block';
-                console.log('Insights: Faixa de Valor MOSTRADO');
-              }
-              if (faixaAreaGroup) {
-                faixaAreaGroup.style.display = 'none';
-                console.log('Insights: Área OCULTO');
-              }
-              if (estagioObraGroup) {
-                estagioObraGroup.style.display = 'none';
-                console.log('Insights: Estágio da Obra OCULTO');
-              }
-              if (bairroGroup) {
-                bairroGroup.style.display = 'none';
-                console.log('Insights: Bairro OCULTO');
-              }
-              if (quartosGroup) {
-                quartosGroup.style.display = 'none';
-                console.log('Insights: Quartos OCULTO');
-              }
-              if (periodoGroup) {
-                periodoGroup.style.display = 'none';
-                console.log('Insights: Período OCULTO');
-              }
+              if (filterActions) filterActions.style.display = 'none';
+              const filtersGrid = document.querySelector('.filters-grid');
+              const filterTitle = document.querySelector('.filter-title');
+              if (filtersGrid) filtersGrid.style.display = 'none';
+              if (filterTitle) filterTitle.textContent = 'Não há filtros disponíveis para esta visualização';
+
+              // Preparar grupos de filtros para quando correlações for selecionada
+              const faixaValorGroup = document.getElementById('faixaValorGroup');
+              if (faixaValorGroup) faixaValorGroup.style.display = 'block';
+              if (faixaAreaGroup) faixaAreaGroup.style.display = 'none';
+              if (estagioObraGroup) estagioObraGroup.style.display = 'none';
+              if (bairroGroup) bairroGroup.style.display = 'none';
+              if (quartosGroup) quartosGroup.style.display = 'none';
+              if (periodoGroup) periodoGroup.style.display = 'none';
               
               document.getElementById('crossTablesContainer').style.display = 'none';
               document.getElementById('tablesContainer').style.display = 'block';
@@ -4866,6 +5189,10 @@ class DashboardGenerator:
               console.log('Configurando filtros para CROSSTABS - Faixa de Valor + Período');
               if (filtersContainer) filtersContainer.style.display = 'block';
               if (filterActions) filterActions.style.display = 'flex';
+              const filtersGridCross = filtersContainer ? filtersContainer.querySelector('.filters-grid') : null;
+              const filterTitleCross = filtersContainer ? filtersContainer.querySelector('.filter-title') : null;
+              if (filtersGridCross) filtersGridCross.style.display = 'flex';
+              if (filterTitleCross) filterTitleCross.textContent = 'FILTROS DE SELEÇÃO';
               
               // Configurar filtros para Crosstabs: Faixa de Valor + Período
               if (faixaValorGroup) {
@@ -4903,6 +5230,11 @@ class DashboardGenerator:
             // RESIDENCIAL e COMERCIAL
             if (filtersContainer) filtersContainer.style.display = 'block';
             if (filterActions) filterActions.style.display = 'flex';
+            // Restaurar grid e título (podem ter sido alterados pelo insights)
+            const filtersGrid = filtersContainer ? filtersContainer.querySelector('.filters-grid') : null;
+            const filterTitle = filtersContainer ? filtersContainer.querySelector('.filter-title') : null;
+            if (filtersGrid) filtersGrid.style.display = 'flex';
+            if (filterTitle) filterTitle.textContent = 'FILTROS DE SELEÇÃO';
             
             if (view === 'residencial') {
               // Filtros: Faixa de Valor, Área Privativa, Estágio da Obra, Região Administrativa, Número de Quartos
@@ -4934,6 +5266,10 @@ class DashboardGenerator:
             
           } catch (err) {
             console.error('Erro ao alternar view:', err);
+          }
+          // Sincronizar bottom nav mobile
+          if (typeof syncMobileBottomNav === 'function') {
+              syncMobileBottomNav(view);
           }
         }
 
@@ -6005,6 +6341,7 @@ class DashboardGenerator:
                         <div class="table-title">${title}</div>
                         <!-- Botões de exportação removidos do cabeçalho da tabela -->
                     </div>
+                    <div class="table-scroll-wrapper">
                     <table id="${tableId}" class="data-table quarterly-table">
                         <thead><tr><th></th>`;
                             
@@ -6092,7 +6429,7 @@ class DashboardGenerator:
             });
 
             // Fecha tabela
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             // Adicionar variações
             const availablePeriods = Object.keys(data).map(p => parseInt(p)).sort();
@@ -6231,7 +6568,7 @@ class DashboardGenerator:
 
             let tableHtml = '<div class="table-card">';
             tableHtml += '<div class="table-header"><div class="table-title">' + title + '</div></div>';
-            tableHtml += '<table id="' + tableId + '" class="data-table quarterly-table"><thead><tr><th></th>';
+            tableHtml += '<div class="table-scroll-wrapper"><table id="' + tableId + '" class="data-table quarterly-table"><thead><tr><th></th>';
 
             years.forEach(function(year) {
                 let hasIncompleteQuarter = false;
@@ -6305,7 +6642,7 @@ class DashboardGenerator:
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             if (series.length > 1) {
                 const lastPoint = series[series.length - 1];
@@ -6399,7 +6736,7 @@ class DashboardGenerator:
             tableHtml += '<div class="table-header">';
             tableHtml += '<div class="table-title">' + title + '</div>';
             tableHtml += '</div>';
-            tableHtml += '<table id="' + tableId + '" class="data-table yearly-table">';
+            tableHtml += '<div class="table-scroll-wrapper"><table id="' + tableId + '" class="data-table yearly-table">';
             tableHtml += '<thead><tr><th>Ano</th><th>Valor</th>';
 
             if (years.length > 1) {
@@ -6498,7 +6835,7 @@ class DashboardGenerator:
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             if (years.length > 1) {
                 const lastYear = years[years.length - 1];
@@ -6637,6 +6974,7 @@ class DashboardGenerator:
                         <div class="table-title">${title}</div>
                         <!-- Botão de exportação removido do cabeçalho da tabela -->
                     </div>
+                    <div class="table-scroll-wrapper">
                     <table id="${tableId}" class="data-table monthly-money-table">
                         <thead><tr><th></th>`;
 
@@ -6711,7 +7049,7 @@ class DashboardGenerator:
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             // Rodapé (variações) - mantém o código existente
             if (series.length > 0) {
@@ -6837,7 +7175,7 @@ class DashboardGenerator:
             tableHtml += '<div class="table-header">';
             tableHtml += '<div class="table-title">' + title + '</div>';
             tableHtml += '</div>';
-            tableHtml += '<table id="' + tableId + '" class="data-table quarterly-table">';
+            tableHtml += '<div class="table-scroll-wrapper"><table id="' + tableId + '" class="data-table quarterly-table">';
             tableHtml += '<thead><tr><th></th>';
 
             years.forEach(function(year) {
@@ -6914,7 +7252,7 @@ class DashboardGenerator:
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             if (series.length > 1) {
                 const lastPoint = series[series.length - 1];
@@ -7008,7 +7346,7 @@ class DashboardGenerator:
             tableHtml += '<div class="table-header">';
             tableHtml += '<div class="table-title">' + title + '</div>';
             tableHtml += '</div>';
-            tableHtml += '<table id="' + tableId + '" class="data-table yearly-table">';
+            tableHtml += '<div class="table-scroll-wrapper"><table id="' + tableId + '" class="data-table yearly-table">';
             tableHtml += '<thead><tr><th>Ano</th><th>Valor</th>';
 
             if (years.length > 1) {
@@ -7108,7 +7446,7 @@ class DashboardGenerator:
                 tableHtml += '</tr>';
             });
 
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>'; // fecha table-scroll-wrapper
 
             const hasIncompleteData = years.some(function(year) { return isIncompleteYear(year, currentInfo); });
             if (hasIncompleteData) {
@@ -7372,6 +7710,121 @@ function applyTrendColorsQuarterly() {
 }
 
         /* ======== NOVAS FUNÇÕES DE NAVEGAÇÃO E CROSSTABS ======== */
+        /* ==================== MOBILE FUNCTIONS ==================== */
+        function isMobile() {
+            return window.innerWidth <= 768;
+        }
+        
+        function toggleMobileSidebar() {
+            if (!isMobile()) return;
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            const hamburger = document.getElementById('mobileHamburger');
+            if (!sidebar) return;
+            const isOpen = sidebar.classList.contains('mobile-open');
+            if (isOpen) {
+                sidebar.classList.remove('mobile-open');
+                overlay && overlay.classList.remove('active');
+                hamburger && hamburger.classList.remove('open');
+                document.body.style.overflow = '';
+            } else {
+                sidebar.classList.add('mobile-open');
+                overlay && overlay.classList.add('active');
+                hamburger && hamburger.classList.add('open');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            // Fechar se sidebar tem a classe mobile-open (independente de isMobile())
+            if (!sidebar || !sidebar.classList.contains('mobile-open')) return;
+            const overlay = document.getElementById('mobileOverlay');
+            const hamburger = document.getElementById('mobileHamburger');
+            sidebar.classList.remove('mobile-open');
+            overlay && overlay.classList.remove('active');
+            hamburger && hamburger.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+        
+        function toggleMobileFilters() {
+            if (!isMobile()) return;
+            const filters = document.getElementById('filtersContainer');
+            if (!filters) return;
+            const btn = document.getElementById('mobileFilterToggle');
+            const isOpen = filters.classList.contains('mobile-filters-open');
+            if (isOpen) {
+                filters.classList.remove('mobile-filters-open');
+                if (btn) btn.style.background = 'rgba(255,255,255,0.2)';
+            } else {
+                filters.classList.add('mobile-filters-open');
+                if (btn) btn.style.background = 'rgba(255,255,255,0.4)';
+                // Fechar sidebar se aberta
+                closeMobileSidebar();
+            }
+        }
+        
+        function mobileNavClick(view) {
+            // NÃO fechar a sidebar — ela permanece aberta para o usuário escolher o submenu
+            // Fechar apenas o painel de filtros se estiver aberto
+            const filters = document.getElementById('filtersContainer');
+            filters && filters.classList.remove('mobile-filters-open');
+            const btn = document.getElementById('mobileFilterToggle');
+            if (btn) btn.style.background = 'rgba(255,255,255,0.2)';
+
+            // Toggle: se já está expandido, colapsa; senão, expande
+            const isExpanded = !!expandedMenus[view];
+            expandedMenus[view] = !isExpanded;
+
+            document.querySelectorAll('.nav-main .nav-item').forEach(function(item) {
+                const v = item.getAttribute('data-view');
+                const expanded = (v === view) && expandedMenus[view];
+                item.classList.toggle('active', v === view);
+                item.classList.toggle('expanded', expanded);
+                const icon = item.querySelector('.expand-icon');
+                if (icon) icon.textContent = expanded ? '▼' : '▶';
+            });
+            document.querySelectorAll('.submenu-container').forEach(function(container) {
+                const isThis = container.id === 'submenu-' + view;
+                container.classList.toggle('expanded', isThis && expandedMenus[view]);
+            });
+
+            // Só chamar switchView se estiver abrindo (não fechando)
+            if (expandedMenus[view]) {
+                const fakeEvent = {
+                    target: { closest: function() { return null; } },
+                    preventDefault: function(){},
+                    stopPropagation: function(){}
+                };
+                if (typeof switchView === 'function') {
+                    switchView(view, fakeEvent);
+                    if (typeof populateSubmenu === 'function') populateSubmenu(view);
+                }
+            }
+        }
+        
+        // Fechar filtros ao clicar fora deles (mobile)
+        document.addEventListener('click', function(e) {
+            if (!isMobile()) return;
+            const filters = document.getElementById('filtersContainer');
+            const toggleBtn = document.getElementById('mobileFilterToggle');
+            if (!filters || !filters.classList.contains('mobile-filters-open')) return;
+            if (!filters.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+                filters.classList.remove('mobile-filters-open');
+                if (toggleBtn) toggleBtn.style.background = 'rgba(255,255,255,0.2)';
+            }
+        });
+        
+        // Sincronizar bottom nav com mudança de view
+        function syncMobileBottomNav(view) {
+            if (!isMobile()) return;
+            ['residencial','comercial','crosstabs','insights'].forEach(v => {
+                const el = document.getElementById('mbn' + v.charAt(0).toUpperCase() + v.slice(1));
+                if (el) el.classList.toggle('active', v === view);
+            });
+        }
+        /* ==================== END MOBILE FUNCTIONS ==================== */
+        
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const mainContainer = document.getElementById('mainContainer');
@@ -7548,6 +8001,13 @@ function applyTrendColorsQuarterly() {
         // Função inteligente para cliques nos ícones das views
         function handleViewClick(view, event) {
             const sidebar = document.getElementById('sidebar');
+            
+            // Mobile: expandir submenu via mobileNavClick (usa fakeEvent seguro)
+            // NÃO fechar a sidebar aqui — só fecha quando o item do submenu for clicado
+            if (isMobile && isMobile()) {
+                mobileNavClick(view);
+                return;
+            }
             
             // Se a sidebar estiver retraída, apenas abrir ela
             if (sidebar && sidebar.classList.contains('collapsed')) {
@@ -7754,6 +8214,34 @@ function applyTrendColorsQuarterly() {
                     else group.style.display = 'none';
                 });
             } else if (currentView === 'insights') {
+                // Filtro Faixa de Valor só é aplicável a Correlações (variáveis de mercado)
+                const fc = document.getElementById('filtersContainer');
+                const fg = document.getElementById('faixaValorGroup');
+                const fa = fc ? fc.querySelector('.filter-actions') : null;
+                const grid = fc ? fc.querySelector('.filters-grid') : null;
+                const title = fc ? fc.querySelector('.filter-title') : null;
+
+                if (cat === 'correlacoes') {
+                    if (fc) fc.style.display = 'block';
+                    if (fa) fa.style.display = 'flex';
+                    if (grid) grid.style.display = 'flex';
+                    if (fg) fg.style.display = 'block';
+                    if (title) title.textContent = 'FILTROS DE SELEÇÃO';
+                } else {
+                    // indicadores_economicos: barra visível mas sem filtros
+                    if (fc) { fc.style.display = 'block'; fc.classList.remove('mobile-filters-open'); }
+                    if (fa) fa.style.display = 'none';
+                    if (grid) grid.style.display = 'none';
+                    if (title) title.textContent = 'Não há filtros disponíveis para esta visualização';
+                    const btn = document.getElementById('mobileFilterToggle');
+                    if (btn) btn.style.background = 'rgba(255,255,255,0.2)';
+                }
+
+                // Fechar painel mobile ao trocar categoria (evitar sobreposição)
+                if (fc) fc.classList.remove('mobile-filters-open');
+                const mfBtn = document.getElementById('mobileFilterToggle');
+                if (mfBtn) mfBtn.style.background = 'rgba(255,255,255,0.2)';
+
                 // insights view: mostrar cards específicos
                 const allCards = document.querySelectorAll('#tablesContainer .insight-card');
                 
@@ -7928,10 +8416,12 @@ function applyTrendColorsQuarterly() {
                 oferta_m2: {},
                 venda_m2: {},
                 gastos_pos_entrega: {},
-                gastos_por_categoria: {}
+                gastos_por_categoria: {},
+                lancamentos_unidades: {}
             };
             const ofertaTypes = ['OFERTADOS DISPONIVEIS', 'OFERTADOS LANCAMENTOS'];
             const vendaTypes = ['VENDIDOS', 'VENDIDOS - LANCADOS E VENDIDOS'];
+            const lancamentoTypes = ['OFERTADOS LANCAMENTOS'];
             
             let processedRows = 0;
             data.forEach(function(row) {
@@ -7973,6 +8463,12 @@ function applyTrendColorsQuarterly() {
                     if (!result.oferta_m2[bairro]) result.oferta_m2[bairro] = {};
                     if (!result.oferta_m2[bairro][qVal]) result.oferta_m2[bairro][qVal] = 0;
                     result.oferta_m2[bairro][qVal] += (row.AREA_QUANTIDADE || 0);
+                }
+                // Unidades lançadas (somente OFERTADOS LANCAMENTOS)
+                if (lancamentoTypes.includes(row.OFERTA_VENDA)) {
+                    if (!result.lancamentos_unidades[bairro]) result.lancamentos_unidades[bairro] = {};
+                    if (!result.lancamentos_unidades[bairro][qVal]) result.lancamentos_unidades[bairro][qVal] = 0;
+                    result.lancamentos_unidades[bairro][qVal] += (row.QUANTIDADE || 0);
                 }
                 if (vendaTypes.includes(row.OFERTA_VENDA)) {
                     // Quantidade de vendas
@@ -8096,6 +8592,7 @@ function applyTrendColorsQuarterly() {
                 venda_m2: result.venda_m2,
                 gastos_pos_entrega: result.gastos_pos_entrega,
                 gastos_por_categoria: result.gastos_por_categoria,
+                lancamentos_unidades: result.lancamentos_unidades,
                 // Adicionar dados brutos para cálculo correto dos totais
                 _rawOferta: result.valor_ponderado_oferta,
                 _rawVenda: result.valor_ponderado_venda
@@ -8261,13 +8758,13 @@ function applyTrendColorsQuarterly() {
             const cross = generateCrossData(data);
             console.log('generateCrossData resultado:', cross);
             
-            const cats = ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'];
+            const cats = ['lancamentos_unidades','lancamentos_empreendimentos','ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'];
             cats.forEach(function(cat, index) {
                 console.log('Processando categoria:', cat);
                 const tableData = cross[cat];
                 
-                // Para tabelas especiais, não dependemos de tableData
-                const isSpecialTable = (cat === 'gastos_pos_entrega' || cat === 'gastos_por_categoria');
+                // Para tabelas especiais, não dependemos de tableData do cross
+                const isSpecialTable = (cat === 'gastos_pos_entrega' || cat === 'gastos_por_categoria' || cat === 'lancamentos_empreendimentos');
                 
                 // Verificação de segurança para tableData
                 if (!isSpecialTable && (!tableData || typeof tableData !== 'object')) {
@@ -8281,6 +8778,12 @@ function applyTrendColorsQuarterly() {
                 
                 let title = '';
                 switch(cat) {
+                    case 'lancamentos_unidades':
+                        title = 'Unidades lançadas por região';
+                        break;
+                    case 'lancamentos_empreendimentos':
+                        title = 'Empreendimentos lançados por região';
+                        break;
                     case 'ivv_por_regiao':
                         title = 'IVV por região (%)';
                         break;
@@ -8330,11 +8833,175 @@ function applyTrendColorsQuarterly() {
                 
                 groupDiv.appendChild(headerDiv);
                 
+                // Estrutura para lancamentos_empreendimentos — padrão igual às demais tabelas crosstab
+                if (cat === 'lancamentos_empreendimentos') {
+                    const filters = getCrossTabsFilters();
+                    const periodKey = filters.periodo ? String(filters.periodo) : null;
+                    const viewKey = currentView === 'comercial' ? 'comercial' : 'residencial';
+                    const empByPeriod = (window.crossTabsEmpreendimentos && window.crossTabsEmpreendimentos[viewKey]) || {};
+                    const empData = (periodKey && empByPeriod[periodKey]) ? empByPeriod[periodKey] : {};
+
+                    const table = document.createElement('table');
+                    table.className = 'data-table cross-table';
+                    const thead = document.createElement('thead');
+
+                    // Coletar quartos — excluir '' (sem quartos), ordenar 1,2,3,4+
+                    const roomSet = new Set();
+                    Object.values(empData).forEach(function(qObj) {
+                        Object.keys(qObj).forEach(function(q) { if (q !== '') roomSet.add(q); });
+                    });
+                    let rooms = Array.from(roomSet);
+                    rooms.sort(function(a, b) {
+                        const order = {'1':1,'2':2,'3':3,'4+':4};
+                        return (order[a] || 5) - (order[b] || 5);
+                    });
+
+                    // Linha 1: supergrupo "Número de Quartos"
+                    const titleRow = document.createElement('tr');
+                    const thRegionTitle = document.createElement('th');
+                    titleRow.appendChild(thRegionTitle);
+                    const thQuartos = document.createElement('th');
+                    thQuartos.textContent = 'Número de Quartos';
+                    thQuartos.setAttribute('colspan', rooms.length);
+                    thQuartos.style.textAlign = 'center';
+                    thQuartos.style.fontWeight = '600';
+                    thQuartos.style.borderBottom = '1px solid #ddd';
+                    titleRow.appendChild(thQuartos);
+                    const thTotalTitle = document.createElement('th');
+                    thTotalTitle.textContent = 'Total';
+                    thTotalTitle.style.textAlign = 'center';
+                    thTotalTitle.style.fontWeight = '600';
+                    thTotalTitle.style.borderBottom = '1px solid #ddd';
+                    titleRow.appendChild(thTotalTitle);
+                    thead.appendChild(titleRow);
+
+                    // Linha 2: "Região" + números de quartos + ⇅
+                    const hRow = document.createElement('tr');
+                    const thEmpty = document.createElement('th');
+                    thEmpty.textContent = 'Região';
+                    thEmpty.style.borderTop = 'none';
+                    hRow.appendChild(thEmpty);
+                    rooms.forEach(function(q) {
+                        const th = document.createElement('th');
+                        th.textContent = q;
+                        th.style.borderTop = 'none';
+                        hRow.appendChild(th);
+                    });
+                    const thSort = document.createElement('th');
+                    thSort.innerHTML = '<span style="cursor:pointer;color:#1976D2;font-size:12px;" title="Clique para ordenar">⇅</span>';
+                    thSort.style.borderTop = 'none';
+                    hRow.appendChild(thSort);
+                    thead.appendChild(hRow);
+                    table.appendChild(thead);
+
+                    const tbody = document.createElement('tbody');
+                    const bairros = Object.keys(empData).sort();
+
+                    // Calcular rowTotals para barras e setas
+                    const rowTotals = {};
+                    bairros.forEach(function(bairro) {
+                        let sum = 0;
+                        rooms.forEach(function(q) { sum += (empData[bairro] && empData[bairro][q]) ? empData[bairro][q] : 0; });
+                        rowTotals[bairro] = sum;
+                    });
+                    const allTotalVals = Object.values(rowTotals).filter(v => v > 0);
+                    const seriesMin = allTotalVals.length ? Math.min(...allTotalVals) : 0;
+                    const seriesMax = allTotalVals.length ? Math.max(...allTotalVals) : 0;
+                    function getBarWidthEmp(value) {
+                        if (seriesMax === seriesMin) return 50;
+                        return ((value - seriesMin) / (seriesMax - seriesMin)) * 100;
+                    }
+
+                    const colTotals = {};
+                    rooms.forEach(function(q) { colTotals[q] = 0; });
+                    let grandTotal = 0;
+
+                    bairros.forEach(function(bairro) {
+                        const row = document.createElement('tr');
+                        const tdRegiao = document.createElement('td');
+                        tdRegiao.textContent = bairro;
+                        tdRegiao.style.fontWeight = '500';
+                        tdRegiao.style.textAlign = 'left';
+                        row.appendChild(tdRegiao);
+
+                        const rowValues = rooms.map(function(q) {
+                            return (empData[bairro] && empData[bairro][q]) ? empData[bairro][q] : 0;
+                        });
+                        const rowPositive = rowValues.filter(v => v > 0);
+                        const rowMax = rowPositive.length ? Math.max(...rowPositive) : 0;
+                        const rowMin = rowPositive.length ? Math.min(...rowPositive) : 0;
+
+                        rooms.forEach(function(q, i) {
+                            const val = (empData[bairro] && empData[bairro][q]) ? empData[bairro][q] : 0;
+                            colTotals[q] += val;
+                            const td = document.createElement('td');
+                            let indicator = '';
+                            if (rowPositive.length > 1) {
+                                if (val === rowMax && val > 0) indicator = ' <span style="color:#555;">▲</span>';
+                                else if (val === rowMin && val > 0) indicator = ' <span style="color:#555;">▼</span>';
+                            }
+                            const displayVal = val.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+                            td.innerHTML = displayVal + indicator;
+                            td.style.textAlign = 'center';
+                            row.appendChild(td);
+                        });
+
+                        const rowTotal = rowTotals[bairro];
+                        grandTotal += rowTotal;
+                        const allTotals = Object.values(rowTotals).filter(v => v > 0);
+                        let totalIndicator = '';
+                        if (allTotals.length > 1) {
+                            if (rowTotal === Math.max(...allTotals) && rowTotal > 0) totalIndicator = ' <span style="color:#555;">▲</span>';
+                            else if (rowTotal === Math.min(...allTotals) && rowTotal > 0) totalIndicator = ' <span style="color:#555;">▼</span>';
+                        }
+                        const displayTotal = rowTotal.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+                        const tdTotal = document.createElement('td');
+                        if (rowTotal > 0) {
+                            const barWidth = getBarWidthEmp(rowTotal);
+                            tdTotal.innerHTML = '<div style="position:relative;padding:4px 8px;border-radius:4px;">' +
+                                '<div style="position:absolute;left:0;top:0;bottom:0;width:' + barWidth.toFixed(2) + '%;' +
+                                'background:linear-gradient(90deg,rgba(74,144,226,0.15) 0%,rgba(74,144,226,0.25) 100%);' +
+                                'border-radius:4px;z-index:0;"></div>' +
+                                '<div style="position:relative;z-index:1;">' + displayTotal + totalIndicator + '</div></div>';
+                        } else {
+                            tdTotal.textContent = displayTotal;
+                        }
+                        row.appendChild(tdTotal);
+                        tbody.appendChild(row);
+                    });
+
+                    // Linha Total Geral
+                    const totalRow = document.createElement('tr');
+                    const tdLabel = document.createElement('td');
+                    tdLabel.textContent = 'Total Geral';
+                    tdLabel.style.fontWeight = '600';
+                    totalRow.appendChild(tdLabel);
+                    rooms.forEach(function(q) {
+                        const td = document.createElement('td');
+                        td.textContent = colTotals[q].toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+                        td.style.textAlign = 'center';
+                        totalRow.appendChild(td);
+                    });
+                    const tdGrand = document.createElement('td');
+                    tdGrand.textContent = grandTotal.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+                    tdGrand.style.textAlign = 'center';
+                    totalRow.appendChild(tdGrand);
+                    tbody.appendChild(totalRow);
+
+                    table.appendChild(tbody);
+                    const scrollWrapper = document.createElement('div');
+                    scrollWrapper.className = 'table-scroll-wrapper';
+                    scrollWrapper.appendChild(table);
+                    groupDiv.appendChild(scrollWrapper);
+                    container.appendChild(groupDiv);
+                    return;
+                }
+
                 // Estrutura especial para gastos_pos_entrega
                 if (cat === 'gastos_pos_entrega') {
                     // Criar tabela com estrutura especial
                     const table = document.createElement('table');
-                    table.className = 'data-table';
+                    table.className = 'data-table cross-table';
                     const thead = document.createElement('thead');
                     
                     // Cabeçalho único para tabela gastos_pos_entrega
@@ -8489,10 +9156,6 @@ function applyTrendColorsQuarterly() {
                     // Linha totalizadora
                     const totalRow = document.createElement('tr');
                     totalRow.style.fontWeight = '600';
-                    totalRow.style.backgroundColor = '#f8f9fa';
-                    totalRow.style.borderTop = '2px solid #007bff';
-                    
-                    // Calcular totais
                     let totalVGVFinal = 0;
                     let totalGastosFinal = 0;
                     let totalPIBFinal = 0;
@@ -8536,8 +9199,9 @@ function applyTrendColorsQuarterly() {
                         const td = document.createElement('td');
                         td.textContent = cellText;
                         if (index === 0) {
+                            td.textContent = 'Total Geral';
                             td.style.textAlign = 'left';
-                            td.style.fontWeight = '700';
+                            td.style.fontWeight = '600';
                         } else if (index === 2 || index === 3 || index === 5) {
                             td.style.textAlign = 'center';
                         } else {
@@ -8549,13 +9213,16 @@ function applyTrendColorsQuarterly() {
                     tbody.appendChild(totalRow);
                     
                     table.appendChild(tbody);
-                    groupDiv.appendChild(table);
+                    const scrollWrapper = document.createElement('div');
+                    scrollWrapper.className = 'table-scroll-wrapper';
+                    scrollWrapper.appendChild(table);
+                    groupDiv.appendChild(scrollWrapper);
                 } else if (cat === 'gastos_por_categoria') {
                     // Estrutura especial para gastos_por_categoria (Tabela 8)
                     // CORREÇÃO FINAL: Aplicar percentuais das categorias diretamente no VGV base
                     // mas usando exatamente o mesmo VGV que gera os gastos da Tabela 7
                     const table = document.createElement('table');
-                    table.className = 'data-table';
+                    table.className = 'data-table cross-table';
                     const thead = document.createElement('thead');
                     
                     // Definir categorias e seus percentuais por padrão (da pesquisa)
@@ -8688,7 +9355,6 @@ function applyTrendColorsQuarterly() {
                         tdRegiao.textContent = regiao;
                         tdRegiao.style.fontWeight = '500';
                         tdRegiao.style.textAlign = 'left';
-                        tdRegiao.style.paddingLeft = '8px';
                         row.appendChild(tdRegiao);
                         
                         // VGV reconstruído da região
@@ -8730,8 +9396,6 @@ function applyTrendColorsQuarterly() {
                             });
                             
                             td.style.textAlign = 'right';
-                            td.style.padding = '6px 8px';
-                            td.style.fontSize = '11px';
                             row.appendChild(td);
                         });
                         
@@ -8750,8 +9414,6 @@ function applyTrendColorsQuarterly() {
                             maximumFractionDigits: 2
                         });
                         tdTotal.style.textAlign = 'right';
-                        tdTotal.style.padding = '6px 8px';
-                        tdTotal.style.fontSize = '11px';
                         tdTotal.style.fontWeight = '500';
                         row.appendChild(tdTotal);
                         
@@ -8761,15 +9423,12 @@ function applyTrendColorsQuarterly() {
                     // Linha totalizadora
                     const totalRow = document.createElement('tr');
                     totalRow.style.fontWeight = '600';
-                    totalRow.style.backgroundColor = '#f8f9fa';
-                    totalRow.style.borderTop = '2px solid #007bff';
                     
-                    // Célula "TOTAL"
+                    // Célula "Total Geral"
                     const tdTotalLabel = document.createElement('td');
-                    tdTotalLabel.textContent = 'TOTAL';
+                    tdTotalLabel.textContent = 'Total Geral';
                     tdTotalLabel.style.textAlign = 'left';
-                    tdTotalLabel.style.fontWeight = '700';
-                    tdTotalLabel.style.paddingLeft = '8px';
+                    tdTotalLabel.style.fontWeight = '600';
                     totalRow.appendChild(tdTotalLabel);
                     
                     // Totais por categoria
@@ -8782,7 +9441,6 @@ function applyTrendColorsQuarterly() {
                         });
                         td.style.textAlign = 'right';
                         td.style.fontWeight = '700';
-                        td.style.padding = '6px 8px';
                         totalRow.appendChild(td);
                     });
                     
@@ -8795,12 +9453,14 @@ function applyTrendColorsQuarterly() {
                     });
                     tdTotalGeral.style.textAlign = 'right';
                     tdTotalGeral.style.fontWeight = '700';
-                    tdTotalGeral.style.padding = '6px 8px';
                     totalRow.appendChild(tdTotalGeral);
                     
                     tbody.appendChild(totalRow);
                     table.appendChild(tbody);
-                    groupDiv.appendChild(table);
+                    const scrollWrapper = document.createElement('div');
+                    scrollWrapper.className = 'table-scroll-wrapper';
+                    scrollWrapper.appendChild(table);
+                    groupDiv.appendChild(scrollWrapper);
                     
                     // Logs finais de verificação
                     console.log('VERIFICAÇÃO FINAL - LÓGICA CORRETA:');
@@ -8840,7 +9500,7 @@ function applyTrendColorsQuarterly() {
                     }
                     
                     const table = document.createElement('table');
-                table.className = 'data-table';
+                table.className = 'data-table cross-table';
                 const thead = document.createElement('thead');
                 
                 // Primeira linha: Título sobre as colunas de quartos
@@ -9197,7 +9857,10 @@ function applyTrendColorsQuarterly() {
                 totalRow.appendChild(tdGrand);
                 tbody.appendChild(totalRow);
                 table.appendChild(tbody);
-                groupDiv.appendChild(table);
+                const scrollWrapper = document.createElement('div');
+                scrollWrapper.className = 'table-scroll-wrapper';
+                scrollWrapper.appendChild(table);
+                groupDiv.appendChild(scrollWrapper);
                 
                 // Adicionar legenda explicativa para IVV
                 if (cat === 'ivv_por_regiao') {
