@@ -343,8 +343,8 @@ class DashboardGenerator:
                     'admin': {
                         'menus': ['residencial', 'comercial', 'crosstabs', 'insights'],
                         'submenus': {
-                            'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_vendas','vgv_ofertas','distratos'],
-                            'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_vendas','vgv_ofertas','distratos'],
+                            'residencial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgv_ofertas','vgv_vendas','vgl','distratos'],
+                            'comercial': ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgv_ofertas','vgv_vendas','vgl','distratos'],
                             'crosstabs': ['ivv_por_regiao','oferta_quantidade','venda_quantidade','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2'],
                             'insights': ['indicadores_economicos','correlacoes']
                         }
@@ -352,8 +352,8 @@ class DashboardGenerator:
                     'manager': {
                         'menus': ['residencial', 'comercial'],
                         'submenus': {
-                            'residencial': ['ivv','oferta','venda','vgl','vgv_vendas','vgv_ofertas'],
-                            'comercial': ['ivv','oferta','venda','vgl','vgv_vendas','vgv_ofertas']
+                            'residencial': ['ivv','oferta','venda','vgv_ofertas','vgv_vendas','vgl'],
+                            'comercial': ['ivv','oferta','venda','vgv_ofertas','vgv_vendas','vgl']
                         }
                     },
                     'analyst': {
@@ -3309,8 +3309,8 @@ class DashboardGenerator:
         
         // Mapeamento de categorias por view
         const viewCategories = {
-            residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
-            comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgl','vgv_ofertas','vgv_vendas','distratos'],
+            residencial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgv_ofertas','vgv_vendas','vgl','distratos'],
+            comercial: ['ivv','oferta','venda','lancamentos','oferta_m2','venda_m2','valor_ponderado_oferta','valor_ponderado_venda','vgv_ofertas','vgv_vendas','vgl','distratos'],
             crosstabs: ['ivv_por_regiao','oferta_quantidade','venda_quantidade','lancamentos_unidades','lancamentos_empreendimentos','valor_ponderado_oferta','valor_ponderado_venda','oferta_m2','venda_m2','gastos_pos_entrega','gastos_por_categoria'],
             insights: ['indicadores_economicos','correlacoes']
         };
@@ -3327,8 +3327,8 @@ class DashboardGenerator:
             valor_ponderado_oferta: 'Preço de Oferta',
             valor_ponderado_venda: 'Preço de Venda',
             vgl: 'VGL',
-            vgv_ofertas: 'VGV sobre Ofertas',
-            vgv_vendas: 'VGV sobre Vendas',
+            vgv_ofertas: 'VGO',
+            vgv_vendas: 'VGV',
             distratos: 'Distratos',
             indicadores_economicos: 'Indicadores Econômicos',
             correlacoes: 'Correlações',
@@ -4038,8 +4038,8 @@ class DashboardGenerator:
                 'oferta': 'OFERTA - Base 100 (MM 3m)',
                 'venda': 'VENDA - Base 100 (MM 3m)',
                 'vgl': 'VGL - Base 100 (MM 3m)',
-                'vgv_vendas': 'VGV Venda - Base 100 (MM 3m)',
-                'vgv_ofertas': 'VGV Oferta - Base 100 (MM 3m)',
+                'vgv_vendas': 'VGV - Base 100 (MM 3m)',
+                'vgv_ofertas': 'VGO - Base 100 (MM 3m)',
                 'lancamentos': 'Lançamentos - Base 100 (MM 3m)'
             };
             
@@ -4255,7 +4255,7 @@ class DashboardGenerator:
                                 const corrEl = document.getElementById('correlationAnalysis');
                                 if (corrEl && typeof renderCorrelationNarrative === 'function') {
                                     if (meta.hidden) {
-                                        corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
+                                        corrEl.innerHTML = `<em>Selecione uma variável de mercado (IVV, Oferta, Venda, VGL, VGV, VGO ou Lançamentos) na legenda para ver as correlações com os indicadores econômicos.</em>`;
                                     } else {
                                         renderCorrelationNarrative('correlationAnalysis', variableKey, variableLabel, economicData, secondaryVars);
                                     }
@@ -4442,7 +4442,7 @@ class DashboardGenerator:
                     hidden: true
                 },
                 vgv_vendas: {
-                    label: 'VGV Venda - Base 100 (MM 3m)',
+                    label: 'VGV - Base 100 (MM 3m)',
                     data: alignedSecondaryData.vgv_vendas,
                     backgroundColor: 'rgba(52, 152, 219, 0.3)',
                     borderColor: 'rgba(52, 152, 219, 0.6)',
@@ -4453,7 +4453,7 @@ class DashboardGenerator:
                     hidden: true
                 },
                 vgv_ofertas: {
-                    label: 'VGV Oferta - Base 100 (MM 3m)',
+                    label: 'VGO - Base 100 (MM 3m)',
                     data: alignedSecondaryData.vgv_ofertas,
                     backgroundColor: 'rgba(241, 196, 15, 0.3)',
                     borderColor: 'rgba(241, 196, 15, 0.6)',
@@ -4539,13 +4539,13 @@ class DashboardGenerator:
                                 let variableKey = null;
                                 let variableLabel = null;
 
-                                if (fullLabel.startsWith('VGV VENDA')) {
+                                if (fullLabel.startsWith('VGV')) {
                                     variableKey = 'vgv_vendas';
-                                    variableLabel = 'VGV Venda';
+                                    variableLabel = 'VGV';
                                 }
-                                else if (fullLabel.startsWith('VGV OFERTA')) {
+                                else if (fullLabel.startsWith('VGO')) {
                                     variableKey = 'vgv_ofertas';
-                                    variableLabel = 'VGV Oferta';
+                                    variableLabel = 'VGO';
                                 }
                                 else if (fullLabel.startsWith('VGL')) {
                                     variableKey = 'vgl';
@@ -4840,7 +4840,7 @@ class DashboardGenerator:
 
                   <!-- Nota metodológica -->
                   <div style="margin-top:15px; padding:12px; background-color:#e8f4fd; border-left:3px solid #2196F3; border-radius:4px; font-size:12px; color:#555; line-height:1.6;">
-                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV Vendas, VGV Ofertas, Lançamentos) são normalizadas em <strong>Base 100</strong> (média dos últimos 12 meses = 100) com <strong>Média Móvel de 3 meses</strong>, permitindo comparar tendências entre séries de escalas diferentes.
+                    <strong>📊 Metodologia:</strong> As variáveis de mercado (IVV, Oferta, Venda, VGL, VGV, VGO, Lançamentos) são normalizadas em <strong>Base 100</strong> (média dos últimos 12 meses = 100) com <strong>Média Móvel de 3 meses</strong>, permitindo comparar tendências entre séries de escalas diferentes.
                   </div>
 
                   <!-- Rodapé explicativo fixo -->
@@ -7533,20 +7533,20 @@ class DashboardGenerator:
             tablesHtml += createQuarterlyTableMoney('Preço de Venda Trimestral (R$/m²)', vendaValorPonderadoPeriods.quarterly, true);
             tablesHtml += createYearlyTableMoney('Preço de Venda Anual (R$/m²)', vendaValorPonderadoPeriods.yearly, true);
             
-            // Tabelas 25-27: VGL (R$ Milhões - 2 casas decimais)
+            // Tabelas 25-27: VGO - VGV sobre Ofertas (R$ Milhões - 2 casas decimais)
+            tablesHtml += createTableMoney('VGO Mensal (R$ Milhões)', vgvOfertasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGO Trimestral (R$ Milhões)', vgvOfertasPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGO Anual (R$ Milhões)', vgvOfertasPeriods.yearly, false);
+            
+            // Tabelas 28-30: VGV - VGV sobre Vendas (R$ Milhões - 2 casas decimais)
+            tablesHtml += createTableMoney('VGV Mensal (R$ Milhões)', vgvVendasPeriods.monthly, false);
+            tablesHtml += createQuarterlyTableMoney('VGV Trimestral (R$ Milhões)', vgvVendasPeriods.quarterly, false);
+            tablesHtml += createYearlyTableMoney('VGV Anual (R$ Milhões)', vgvVendasPeriods.yearly, false);
+            
+            // Tabelas 31-33: VGL (R$ Milhões - 2 casas decimais)
             tablesHtml += createTableMoney('VGL Mensal (R$ Milhões)', vglPeriods.monthly, false);
             tablesHtml += createQuarterlyTableMoney('VGL Trimestral (R$ Milhões)', vglPeriods.quarterly, false);
             tablesHtml += createYearlyTableMoney('VGL Anual (R$ Milhões)', vglPeriods.yearly, false);
-            
-            // Tabelas 28-30: VGV sobre Ofertas (R$ Milhões - 2 casas decimais)
-            tablesHtml += createTableMoney('VGV sobre Ofertas Mensal (R$ Milhões)', vgvOfertasPeriods.monthly, false);
-            tablesHtml += createQuarterlyTableMoney('VGV sobre Ofertas Trimestral (R$ Milhões)', vgvOfertasPeriods.quarterly, false);
-            tablesHtml += createYearlyTableMoney('VGV sobre Ofertas Anual (R$ Milhões)', vgvOfertasPeriods.yearly, false);
-            
-            // Tabelas 31-33: VGV sobre Vendas (R$ Milhões - 2 casas decimais)
-            tablesHtml += createTableMoney('VGV sobre Vendas Mensal (R$ Milhões)', vgvVendasPeriods.monthly, false);
-            tablesHtml += createQuarterlyTableMoney('VGV sobre Vendas Trimestral (R$ Milhões)', vgvVendasPeriods.quarterly, false);
-            tablesHtml += createYearlyTableMoney('VGV sobre Vendas Anual (R$ Milhões)', vgvVendasPeriods.yearly, false);
 
 // Tabelas 31-33: Distratos (Unidades - sem casas decimais)
             tablesHtml += createTable('Distratos Mensais (Unidades)', distratosPeriods.monthly, false);
@@ -8148,9 +8148,9 @@ function applyTrendColorsQuarterly() {
                     cat = 'lancamentos';
                 } else if (title.includes('vgl')) {
                     cat = 'vgl';
-                } else if (title.includes('vgv') && title.includes('oferta')) {
+                } else if (title.includes('vgo')) {
                     cat = 'vgv_ofertas';
-                } else if (title.includes('vgv') && title.includes('venda')) {
+                } else if (title.includes('vgv')) {
                     cat = 'vgv_vendas';
                 } else if (title.includes('vgv')) {
                     // fallback para retrocompatibilidade
@@ -8316,14 +8316,14 @@ function applyTrendColorsQuarterly() {
                             shouldShow = title.includes('vgl');
                             break;
                         case 'vgv_ofertas':
-                            shouldShow = title.includes('vgv') && title.includes('oferta');
+                            shouldShow = title.includes('vgo');
                             break;
                         case 'vgv_vendas':
-                            shouldShow = title.includes('vgv') && title.includes('venda');
+                            shouldShow = title.includes('vgv') && !title.includes('vgl') && !title.includes('vgo');
                             break;
                         case 'vgv':
                             // retrocompatibilidade
-                            shouldShow = title.includes('vgv');
+                            shouldShow = title.includes('vgv') || title.includes('vgo');
                             break;
                         case 'distratos':
                             shouldShow = title.includes('distrato');
