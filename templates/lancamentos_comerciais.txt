@@ -2,3 +2,9 @@
 Regra: Cada empreendimento é contado quando o incorporador o insere no sistema como lançamento.
 Fases posteriores são ignoradas.
 
+Ano: 2026
+Total lançamentos: 1
+Empreendimentos Lançados:
+
+  - 03 | CONSTRUTORA VILLELA E CARVALHO LTDA | Noroeste | AMAZE SUNSIDE
+

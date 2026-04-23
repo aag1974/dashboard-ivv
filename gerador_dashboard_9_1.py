@@ -1223,25 +1223,30 @@ class DashboardGenerator:
                     continue
                 period_data = launches[launches['ANO_MES'] == period]
                 result[period_key] = {}
+                has_quartos = 'QTD_QUARTOS' in period_data.columns
                 for bairro in period_data['BAIRRO'].unique():
                     if not bairro or str(bairro) == 'nan':
                         continue
                     b_data = period_data[period_data['BAIRRO'] == bairro]
                     result[period_key][bairro] = {}
-                    for quartos_val in b_data['QTD_QUARTOS'].unique():
-                        # Replicar lógica JS: nulo/''/nan → '', >=4 → '4+'
-                        if quartos_val is None or (isinstance(quartos_val, float) and np.isnan(quartos_val)) or str(quartos_val).strip() == '':
-                            q_str = ''
-                        else:
-                            try:
-                                num = int(quartos_val)
-                                q_str = '4+' if num >= 4 else str(num)
-                            except Exception:
-                                q_str = str(quartos_val)
-                        q_data = b_data[b_data['QTD_QUARTOS'] == quartos_val]
-                        count = int(q_data[emp_col].nunique()) if emp_col in q_data.columns else 0
-                        existing = result[period_key][bairro].get(q_str, 0)
-                        result[period_key][bairro][q_str] = existing + count
+                    if has_quartos:
+                        for quartos_val in b_data['QTD_QUARTOS'].unique():
+                            # Replicar lógica JS: nulo/''/nan → '', >=4 → '4+'
+                            if quartos_val is None or (isinstance(quartos_val, float) and np.isnan(quartos_val)) or str(quartos_val).strip() == '':
+                                q_str = ''
+                            else:
+                                try:
+                                    num = int(quartos_val)
+                                    q_str = '4+' if num >= 4 else str(num)
+                                except Exception:
+                                    q_str = str(quartos_val)
+                            q_data = b_data[b_data['QTD_QUARTOS'] == quartos_val]
+                            count = int(q_data[emp_col].nunique()) if emp_col in q_data.columns else 0
+                            existing = result[period_key][bairro].get(q_str, 0)
+                            result[period_key][bairro][q_str] = existing + count
+                    else:
+                        count = int(b_data[emp_col].nunique()) if emp_col in b_data.columns else 0
+                        result[period_key][bairro][''] = count
             return result
 
         return {

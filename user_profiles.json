@@ -47,21 +47,21 @@
       "profile": "admin",
       "active": true,
       "created_at": "2025-12-17T12:24:46.722100",
-      "last_access": "2026-04-07T16:40:18.191971"
+      "last_access": "2026-04-23T10:26:55.050035"
     },
     "andre@opiniao.inf.br": {
       "name": "Andre",
       "profile": "manager",
       "active": true,
       "created_at": "2025-12-17T12:24:46.724137",
-      "last_access": "2026-04-07T16:40:38.569652"
+      "last_access": "2026-04-23T10:27:16.946179"
     },
     "alexopiniao@gmail.com": {
       "name": "Alexandre",
       "profile": "viewer",
       "active": true,
       "created_at": "2025-12-17T12:24:46.726030",
-      "last_access": "2026-04-07T16:41:15.814724"
+      "last_access": "2026-04-23T10:28:15.083490"
     },
     "comunicacomaguia@gmail.com": {
       "name": "Doca",
@@ -278,7 +278,7 @@
       "profile": "analyst",
       "active": true,
       "created_at": "2025-12-19T11:08:38.827796",
-      "last_access": "2026-04-07T16:40:57.549380"
+      "last_access": "2026-04-23T10:27:47.259454"
     },
     "mz@brmasset.com.br": {
       "name": "Mateus Zanini",
