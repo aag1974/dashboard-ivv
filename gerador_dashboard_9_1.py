@@ -5713,54 +5713,58 @@ class DashboardGenerator:
         function calculateUniqueProjects(data, ofertaTypes) {
             const projectsByPeriod = {};
             
-            // Função para limpar nome do projeto (remover blocos/unidades)
+            // Função para limpar nome do projeto.
+            // Implementa a MESMA normalização usada em calculateUniqueProjectsPeriodAggregations
+            // (normalizeEmpreendimentoName), garantindo que o agregado MENSAL seja consistente
+            // com TRIMESTRAL e ANUAL. Sem isso, "Janete Vaz" e "JANETE VAZ" seriam contados
+            // como dois empreendimentos no mensal apesar de serem o mesmo.
             function cleanProjectName(name) {
-                if (!name || name === 'N/A') return name;
-                
-                // Converter para string e remover sufixos comuns
-                let cleaned = String(name).trim();
-                
-                // Lista de sufixos a remover (ordem importa - mais específicos primeiro)
-                const suffixes = [
-                    // Sufixos de bloco com especificações
-                    / BL [A-Z] COBERTURA$/i,
-                    / BL [A-Z] GARDEN DUPLEX$/i,
-                    / BL [A-Z] GARDEN$/i,
-                    / BL [A-Z] LOFT$/i,
-                    / BL [A-Z] DUPLEX$/i,
-                    / BL [A-Z] STUDIO$/i,
-                    
-                    // Sufixos de bloco simples
-                    / BL [A-Z]$/i,
-                    / BLOCO [A-Z]$/i,
-                    / TORRE [A-Z]$/i,
-                    / TOWER [A-Z]$/i,
-                    
-                    // Sufixos com números
-                    / BL \d+$/i,
-                    / BLOCO \d+$/i,
-                    / TORRE \d+$/i,
-                    / TOWER \d+$/i,
-                    
-                    // Especificações de unidade
-                    / COBERTURA$/i,
-                    / GARDEN$/i,
-                    / DUPLEX$/i,
-                    / STUDIO$/i,
-                    / LOFT$/i,
-                    
-                    // Outros sufixos comuns
-                    / 2 SUÍTES$/i,
-                    / 3 SUÍTES$/i,
-                    / 1 SUÍTE$/i
+                if (!name || name === 'N/A') return 'N/A';
+
+                // 1) Uppercase + trim — chave essencial para deduplicação case-insensitive
+                let normalized = String(name).trim().toUpperCase();
+
+                // 2) Correções ortográficas (replica do Python extract_empreendimento_name)
+                normalized = normalized
+                    .replace(/EMPPREENDIMENTO/gi, 'EMPREENDIMENTO')
+                    .replace(/EMPREEENDIMENTO/gi, 'EMPREENDIMENTO')
+                    .replace(/EMPRENDIMENTO/gi, 'EMPREENDIMENTO');
+
+                // 3) Remover prefixos genéricos
+                normalized = normalized
+                    .replace(/^EMPREENDIMENTO\s+/i, '')
+                    .replace(/^RESIDENCIAL\s+/i, '')
+                    .replace(/^RES\s+/i, '')
+                    .trim();
+
+                // 4) Remover sufixos de bloco/torre/tipologia/quartos
+                const patternsToRemove = [
+                    /\s+BL\s+[A-Z0-9]+/gi,
+                    /\s+BLOCO\s+[A-Z0-9]+/gi,
+                    /\s+TORRE\s+[A-Z0-9]+/gi,
+                    /\s+TIPO\b/gi,
+                    /\s+APTO\s+[A-Z0-9]+/gi,
+                    /\s+APT\s+[A-Z0-9]+/gi,
+                    /\s+APARTAMENTO\s+[A-Z0-9]+/gi,
+                    /\s+SALA\s+[A-Z0-9]+/gi,
+                    /\s+LOJA\s+[A-Z0-9]+/gi,
+                    /\s+COBERTURA\b/gi,
+                    /\s+GARDEN\b/gi,
+                    /\s+DUPLEX\b/gi,
+                    /\s+TRIPLEX\b/gi,
+                    /\s+[0-9]+Q\b/gi,
+                    /\s+[0-9]+\s+QUARTOS?/gi,
+                    /\s+COM\s+TERRAÇO/gi,
+                    /\s+STUDIO\b/gi,
+                    /\s+LOFT\b/gi,
+                    /\s+[0-9]+\s+SUÍTES?\b/gi
                 ];
-                
-                // Aplicar todas as limpezas
-                for (let suffix of suffixes) {
-                    cleaned = cleaned.replace(suffix, '');
+
+                for (let pattern of patternsToRemove) {
+                    normalized = normalized.replace(pattern, '').trim();
                 }
-                
-                return cleaned.trim();
+
+                return normalized || 'N/A';
             }
             
             data.forEach(function(row) {
